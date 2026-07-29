@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理后台 - 单频道直播</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+            min-height: 100vh;
+        }
+
+        .login-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .login-box {
+            background: #fff;
+            border-radius: 16px;
+            padding: 40px;
+            width: 100%;
+            max-width: 380px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .login-header h1 {
+            font-size: 1.5rem;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .login-header p {
+            color: #888;
+            font-size: 0.9rem;
+        }
+
+        .login-icon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 28px;
+            color: white;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #555;
+            font-size: 0.9rem;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #229954;
+        }
+
+        .error-message {
+            color: #e74c3c;
+            font-size: 0.85rem;
+            margin-top: 10px;
+            text-align: center;
+            min-height: 20px;
+        }
+
+        .dashboard {
+            display: none;
+        }
+
+        .dashboard.active {
+            display: block;
+        }
+
+        .admin-header {
+            background: #fff;
+            padding: 16px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        }
+
+        .admin-header h1 {
+            font-size: 1.2rem;
+            color: #333;
+        }
+
+        .logout-btn {
+            background: none;
+            border: 1px solid #ddd;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            color: #666;
+            transition: all 0.3s;
+        }
+
+        .logout-btn:hover {
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .container {
+            padding: 32px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+
+        .stat-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .stat-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .stat-card-title {
+            font-size: 0.9rem;
+            color: #888;
+            font-weight: 500;
+        }
+
+        .stat-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .stat-icon.live {
+            background: #ffeaea;
+            color: #e74c3c;
+        }
+
+        .stat-icon.viewers {
+            background: #e8f4fd;
+            color: #3498db;
+        }
+
+        .stat-icon.bitrate {
+            background: #fff3e0;
+            color: #f39c12;
+        }
+
+        .stat-icon.time {
+            background: #e8f5e9;
+            color: #27ae60;
+        }
+
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .stat-value.small {
+            font-size: 1.2rem;
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: #888;
+        }
+
+        .live-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .status-badge.live {
+            background: #ffeaea;
+            color: #e74c3c;
+        }
+
+        .status-badge.offline {
+            background: #f0f0f0;
+            color: #888;
+        }
+
+        .control-panel {
+            background: #fff;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            margin-bottom: 24px;
+        }
+
+        .control-panel h2 {
+            font-size: 1.1rem;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .control-buttons {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .control-buttons .btn {
+            width: auto;
+            min-width: 140px;
+        }
+
+        .info-section {
+            background: #fff;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .info-section h2 {
+            font-size: 1.1rem;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .info-list {
+            list-style: none;
+        }
+
+        .info-list li {
+            padding: 12px 0;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .info-list li:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            color: #888;
+            font-size: 0.9rem;
+        }
+
+        .info-value {
+            color: #333;
+            font-weight: 500;
+            font-family: monospace;
+            font-size: 0.85rem;
+        }
+
+        .copy-btn {
+            background: none;
+            border: 1px solid #ddd;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            color: #666;
+            transition: all 0.2s;
+        }
+
+        .copy-btn:hover {
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 16px;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .control-buttons .btn {
+                flex: 1;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="login-container" id="loginContainer">
+        <div class="login-box">
+            <div class="login-header">
+                <div class="login-icon">&#9881;</div>
+                <h1>管理后台</h1>
+                <p>请登录以访问直播管理面板</p>
+            </div>
+            <div class="form-group">
+                <label for="username">用户名</label>
+                <input type="text" id="username" placeholder="请输入用户名" value="admin">
+            </div>
+            <div class="form-group">
+                <label for="password">密码</label>
+                <input type="password" id="password" placeholder="请输入密码" value="admin123">
+            </div>
+            <button class="btn btn-primary" onclick="handleLogin()">登 录</button>
+            <div class="error-message" id="errorMessage"></div>
+        </div>
+    </div>
+
+    <div class="dashboard" id="dashboard">
+        <div class="admin-header">
+            <h1>&#9881; 直播管理控制台</h1>
+            <button class="logout-btn" onclick="handleLogout()">退出登录</button>
+        </div>
+
+        <div class="container">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-card-header">
+                        <span class="stat-card-title">直播状态</span>
+                        <div class="stat-icon live">&#9679;</div>
+                    </div>
+                    <div class="live-status">
+                        <span class="stat-value" id="statusValue">离线</span>
+                    </div>
+                    <div id="statusBadge" class="status-badge offline">OFFLINE</div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-card-header">
+                        <span class="stat-card-title">观看人数</span>
+                        <div class="stat-icon viewers">&#128100;</div>
+                    </div>
+                    <div class="stat-value" id="viewersCount">0</div>
+                    <div class="stat-label">当前观众</div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-card-header">
+                        <span class="stat-card-title">码率</span>
+                        <div class="stat-icon bitrate">&#128246;</div>
+                    </div>
+                    <div class="stat-value small" id="bitrateValue">0 Kbps</div>
+                    <div class="stat-label">视频码率</div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-card-header">
+                        <span class="stat-card-title">直播时长</span>
+                        <div class="stat-icon time">&#9201;</div>
+                    </div>
+                    <div class="stat-value small" id="durationValue">00:00:00</div>
+                    <div class="stat-label">已直播时长</div>
+                </div>
+            </div>
+
+            <div class="control-panel">
+                <h2>直播控制</h2>
+                <div class="control-buttons">
+                    <button class="btn btn-success" id="startBtn" onclick="startStream()">启动直播</button>
+                    <button class="btn btn-danger" id="stopBtn" onclick="stopStream()">停止直播</button>
+                    <button class="btn btn-primary" onclick="refreshStatus()">刷新状态</button>
+                </div>
+            </div>
+
+            <div class="info-section">
+                <h2>推流信息</h2>
+                <ul class="info-list">
+                    <li>
+                        <span class="info-label">RTMP推流地址</span>
+                        <span style="display: flex; align-items: center; gap: 8px;">
+                            <span class="info-value" id="rtmpUrl">-</span>
+                            <button class="copy-btn" onclick="copyText('rtmpUrl')">复制</button>
+                        </span>
+                    </li>
+                    <li>
+                        <span class="info-label">FLV播放地址</span>
+                        <span style="display: flex; align-items: center; gap: 8px;">
+                            <span class="info-value" id="flvUrl">-</span>
+                            <button class="copy-btn" onclick="copyText('flvUrl')">复制</button>
+                        </span>
+                    </li>
+                    <li>
+                        <span class="info-label">OBS服务器地址</span>
+                        <span style="display: flex; align-items: center; gap: 8px;">
+                            <span class="info-value" id="obsServer">-</span>
+                            <button class="copy-btn" onclick="copyText('obsServer')">复制</button>
+                        </span>
+                    </li>
+                    <li>
+                        <span class="info-label">OBS推流密钥</span>
+                        <span style="display: flex; align-items: center; gap: 8px;">
+                            <span class="info-value" id="obsKey">-</span>
+                            <button class="copy-btn" onclick="copyText('obsKey')">复制</button>
+                        </span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let statusInterval = null;
+
+        async function handleLogin() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const errorMessage = document.getElementById('errorMessage');
+
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    localStorage.setItem('adminToken', data.token);
+                    showDashboard();
+                } else {
+                    errorMessage.textContent = data.message || '登录失败';
+                }
+            } catch (err) {
+                errorMessage.textContent = '登录请求失败';
+            }
+        }
+
+        async function handleLogout() {
+            const token = localStorage.getItem('adminToken');
+            try {
+                await fetch('/api/logout', {
+                    method: 'POST',
+                    headers: {
+                        'x-admin-token': token
+                    }
+                });
+            } catch (err) {
+                console.error('登出失败:', err);
+            }
+            localStorage.removeItem('adminToken');
+            document.getElementById('loginContainer').style.display = 'flex';
+            document.getElementById('dashboard').classList.remove('active');
+            if (statusInterval) {
+                clearInterval(statusInterval);
+                statusInterval = null;
+            }
+        }
+
+        function showDashboard() {
+            document.getElementById('loginContainer').style.display = 'none';
+            document.getElementById('dashboard').classList.add('active');
+            refreshStatus();
+            if (statusInterval) clearInterval(statusInterval);
+            statusInterval = setInterval(refreshStatus, 3000);
+        }
+
+        async function refreshStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+                if (data.success) {
+                    updateDashboard(data.data);
+                }
+            } catch (err) {
+                console.error('获取状态失败:', err);
+            }
+        }
+
+        function updateDashboard(status) {
+            const statusValue = document.getElementById('statusValue');
+            const statusBadge = document.getElementById('statusBadge');
+            const viewersCount = document.getElementById('viewersCount');
+            const bitrateValue = document.getElementById('bitrateValue');
+            const durationValue = document.getElementById('durationValue');
+            const startBtn = document.getElementById('startBtn');
+            const stopBtn = document.getElementById('stopBtn');
+
+            if (status.live) {
+                statusValue.textContent = '直播中';
+                statusBadge.textContent = 'LIVE';
+                statusBadge.className = 'status-badge live';
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                startBtn.style.opacity = '0.5';
+                stopBtn.style.opacity = '1';
+            } else {
+                statusValue.textContent = '离线';
+                statusBadge.textContent = 'OFFLINE';
+                statusBadge.className = 'status-badge offline';
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+                startBtn.style.opacity = '1';
+                stopBtn.style.opacity = '0.5';
+            }
+
+            viewersCount.textContent = status.viewers || 0;
+            bitrateValue.textContent = status.bitrate ? status.bitrate + ' Kbps' : '0 Kbps';
+
+            if (status.startedAt) {
+                const startedAt = new Date(status.startedAt);
+                const now = new Date();
+                const duration = Math.floor((now - startedAt) / 1000);
+                const hours = String(Math.floor(duration / 3600)).padStart(2, '0');
+                const minutes = String(Math.floor((duration % 3600) / 60)).padStart(2, '0');
+                const seconds = String(duration % 60).padStart(2, '0');
+                durationValue.textContent = `${hours}:${minutes}:${seconds}`;
+            } else {
+                durationValue.textContent = '00:00:00';
+            }
+
+            if (status.server) {
+                document.getElementById('rtmpUrl').textContent = status.server.rtmpUrl || '-';
+                document.getElementById('flvUrl').textContent = status.server.flvUrl || '-';
+                const host = window.location.hostname || 'localhost';
+                const rtmpPort = status.server.rtmpUrl ? new URL(status.server.rtmpUrl.replace('rtmp://', 'http://')).port : '1935';
+                document.getElementById('obsServer').textContent = `rtmp://${host}:${rtmpPort}/live`;
+                document.getElementById('obsKey').textContent = 'live';
+            }
+        }
+
+        async function startStream() {
+            try {
+                const token = localStorage.getItem('adminToken');
+                const response = await fetch('/api/stream/start', {
+                    method: 'POST',
+                    headers: {
+                        'x-admin-token': token
+                    }
+                });
+                const data = await response.json();
+                if (response.status === 401) {
+                    alert('登录已过期，请重新登录');
+                    handleLogout();
+                    return;
+                }
+                if (data.success) {
+                    alert(data.message + '\n\n请在OBS中配置推流地址后开始推流');
+                } else {
+                    alert(data.message);
+                }
+                refreshStatus();
+            } catch (err) {
+                alert('操作失败');
+            }
+        }
+
+        async function stopStream() {
+            if (!confirm('确定要停止直播吗？')) return;
+            try {
+                const token = localStorage.getItem('adminToken');
+                const response = await fetch('/api/stream/stop', {
+                    method: 'POST',
+                    headers: {
+                        'x-admin-token': token
+                    }
+                });
+                const data = await response.json();
+                if (response.status === 401) {
+                    alert('登录已过期，请重新登录');
+                    handleLogout();
+                    return;
+                }
+                if (data.success) {
+                    alert(data.message);
+                } else {
+                    alert(data.message);
+                }
+                refreshStatus();
+            } catch (err) {
+                alert('操作失败');
+            }
+        }
+
+        function copyText(elementId) {
+            const text = document.getElementById(elementId).textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = '已复制';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                }, 1500);
+            });
+        }
+
+        window.addEventListener('load', () => {
+            const token = localStorage.getItem('adminToken');
+            if (token) {
+                showDashboard();
+            }
+            document.getElementById('password').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') handleLogin();
+            });
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,21 @@
+{
+    "name": "single-channel-livestream",
+    "version": "1.0.0",
+    "description": "单频道在线直播服务系统",
+    "main": "server.js",
+    "scripts": {
+        "start": "node server.js",
+        "dev": "node server.js",
+        "postinstall": "patch-package"
+    },
+    "dependencies": {
+        "express": "^4.18.2",
+        "node-media-server": "^2.7.4"
+    },
+    "engines": {
+        "node": ">=16.0.0"
+    },
+    "devDependencies": {
+        "patch-package": "^8.0.1"
+    }
+}

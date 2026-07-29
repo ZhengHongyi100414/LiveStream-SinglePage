@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>单频道直播</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #0a0a0a;
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 2px solid #e94560;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: #e94560;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #666;
+        }
+
+        .status-dot.live {
+            background: #ff4757;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .status-text.live {
+            color: #ff4757;
+            font-weight: bold;
+        }
+
+        main {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .player-container {
+            width: 100%;
+            max-width: 1200px;
+            position: relative;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            aspect-ratio: 16 / 9;
+        }
+
+        #videoPlayer {
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: contain;
+        }
+
+        .player-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 10;
+        }
+
+        .player-overlay.hidden {
+            display: none;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #333;
+            border-top-color: #e94560;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .overlay-text {
+            margin-top: 16px;
+            font-size: 1rem;
+            color: #aaa;
+        }
+
+        .stream-info {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            right: 10px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.7);
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        .stream-info span:last-child {
+            pointer-events: auto;
+        }
+
+        .click-to-unmute {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.7);
+            padding: 20px 40px;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            z-index: 20;
+            transition: background 0.3s;
+        }
+
+        .click-to-unmute:hover {
+            background: rgba(0, 0, 0, 0.9);
+        }
+
+        .unmute-icon {
+            font-size: 3rem;
+        }
+
+        footer {
+            background: #1a1a2e;
+            padding: 12px 24px;
+            text-align: center;
+            color: #666;
+            font-size: 0.85rem;
+            border-top: 1px solid #333;
+        }
+
+        @media (max-width: 768px) {
+            header {
+                padding: 12px 16px;
+            }
+
+            .logo {
+                font-size: 1rem;
+            }
+
+            .logo-icon {
+                width: 28px;
+                height: 28px;
+                font-size: 16px;
+            }
+
+            main {
+                padding: 12px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div class="logo">
+            <div class="logo-icon">&#9679;</div>
+            <span>单频道直播</span>
+        </div>
+        <div class="status-indicator">
+            <div class="status-dot" id="statusDot"></div>
+            <span class="status-text" id="statusText">离线</span>
+        </div>
+    </header>
+
+    <main>
+        <div class="player-container" id="playerContainer">
+            <video id="videoPlayer" controls autoplay muted playsinline></video>
+            <div class="player-overlay" id="playerOverlay">
+                <div class="loading-spinner"></div>
+                <div class="overlay-text" id="overlayText">等待直播开始...</div>
+            </div>
+            <div class="click-to-unmute" id="clickToUnmute" style="display: none;">
+                <div class="unmute-icon">&#128266;</div>
+                <div>点击开启声音</div>
+            </div>
+            <div class="stream-info" id="streamInfo" style="display: none;">
+                <span id="protocolInfo">-</span>
+                <span id="resolutionInfo">-</span>
+                <span id="muteStatus" style="cursor: pointer;" onclick="toggleMute()">&#128263; 静音</span>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2024 单频道直播服务系统</p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/flv.js@latest"></script>
+    <script>
+        const videoPlayer = document.getElementById('videoPlayer');
+        const playerOverlay = document.getElementById('playerOverlay');
+        const overlayText = document.getElementById('overlayText');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const streamInfo = document.getElementById('streamInfo');
+        const protocolInfo = document.getElementById('protocolInfo');
+        const resolutionInfo = document.getElementById('resolutionInfo');
+        const clickToUnmute = document.getElementById('clickToUnmute');
+        const muteStatus = document.getElementById('muteStatus');
+
+        let flvPlayer = null;
+        let isPlaying = false;
+        let isConnecting = false;
+        let lastLiveStatus = null;
+
+        function toggleMute() {
+            videoPlayer.muted = !videoPlayer.muted;
+            updateMuteStatus();
+            if (!videoPlayer.muted) {
+                clickToUnmute.style.display = 'none';
+            }
+        }
+
+        function updateMuteStatus() {
+            if (videoPlayer.muted) {
+                muteStatus.textContent = '\u{1F507} 静音';
+            } else {
+                muteStatus.textContent = '\u{1F50A} 有声';
+            }
+        }
+
+        async function forcePlay() {
+            try {
+                await videoPlayer.play();
+                console.log('播放成功');
+            } catch (err) {
+                console.warn('播放失败:', err.message);
+                // 如果因为自动播放策略失败，提示用户点击
+                if (err.name === 'NotAllowedError' || videoPlayer.paused) {
+                    overlayText.textContent = '点击页面开始播放';
+                    playerOverlay.classList.remove('hidden');
+                }
+            }
+        }
+
+        async function fetchStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+                if (data.success) {
+                    handleStatusChange(data.data);
+                }
+            } catch (err) {
+                console.error('获取状态失败:', err);
+            }
+        }
+
+        function handleStatusChange(status) {
+            if (status.live !== lastLiveStatus) {
+                lastLiveStatus = status.live;
+
+                if (status.live) {
+                    updateStatusUI(true);
+                    const flvUrl = status.server ? status.server.flvUrl : null;
+                    if (flvUrl && !isPlaying && !isConnecting) {
+                        startFlvPlayback(flvUrl);
+                    }
+                } else {
+                    updateStatusUI(false);
+                    if (isPlaying || isConnecting) {
+                        stopPlayback();
+                    }
+                }
+            }
+        }
+
+        function updateStatusUI(isLive) {
+            if (isLive) {
+                statusDot.classList.add('live');
+                statusText.textContent = '直播中';
+                statusText.classList.add('live');
+            } else {
+                statusDot.classList.remove('live');
+                statusText.textContent = '离线';
+                statusText.classList.remove('live');
+                streamInfo.style.display = 'none';
+            }
+        }
+
+        function startFlvPlayback(flvUrl) {
+            if (isConnecting || isPlaying) return;
+
+            isConnecting = true;
+            overlayText.textContent = '正在连接直播...';
+
+            flvPlayer = flvjs.createPlayer({
+                type: 'flv',
+                url: flvUrl,
+                isLive: true,
+                hasAudio: true,
+                hasVideo: true,
+            }, {
+                enableStashBuffer: true,
+                stashInitialSize: 256,
+                autoCleanupSourceBuffer: false,
+                cleanupLiveBuffer: false,
+                fixAudioTimestampGap: false,
+                lazyLoad: false,
+                liveBufferLatencyChasing: true,
+                liveBufferLatencyChasingOnPaused: true,
+                liveBufferLatencyMaxLatency: 3.0,
+                liveBufferLatencyMinRemain: 0.5,
+            });
+
+            flvPlayer.attachMediaElement(videoPlayer);
+            flvPlayer.load();
+
+            flvPlayer.on(flvjs.Events.ERROR, (errorType, errorDetail, errorInfo) => {
+                console.error('FLV错误:', errorType, errorDetail);
+
+                if (errorType === flvjs.ErrorTypes.NETWORK_ERROR) {
+                    overlayText.textContent = '网络断开，正在重连...';
+                    playerOverlay.classList.remove('hidden');
+
+                    setTimeout(() => {
+                        if (flvPlayer && !isPlaying) {
+                            try {
+                                flvPlayer.load();
+                            } catch (e) {
+                                console.error('重连失败:', e);
+                            }
+                        }
+                    }, 2000);
+                }
+            });
+
+            flvPlayer.on(flvjs.Events.LOADED_METADATA, () => {
+                isConnecting = false;
+                forcePlay();
+            });
+
+            flvPlayer.on(flvjs.Events.PLAYING, () => {
+                isConnecting = false;
+                isPlaying = true;
+                playerOverlay.classList.add('hidden');
+                forcePlay();
+                updateStreamInfo();
+            });
+
+            flvPlayer.on(flvjs.Events.PAUSED, () => {
+                if (isPlaying) {
+                    forcePlay();
+                }
+            });
+
+            flvPlayer.on(flvjs.Events.STOPPED, () => {
+                if (isPlaying) {
+                    forcePlay();
+                }
+            });
+
+            videoPlayer.addEventListener('waiting', () => {
+                if (!playerOverlay.classList.contains('hidden')) {
+                    overlayText.textContent = '缓冲中...';
+                }
+            });
+
+            videoPlayer.addEventListener('playing', () => {
+                playerOverlay.classList.add('hidden');
+                updateStreamInfo();
+                // 播放成功后显示点击开启声音按钮
+                if (videoPlayer.muted) {
+                    setTimeout(() => {
+                        if (videoPlayer.muted && isPlaying) {
+                            clickToUnmute.style.display = 'flex';
+                        }
+                    }, 500);
+                }
+            });
+
+            videoPlayer.addEventListener('play', () => {
+                console.log('视频开始播放');
+            });
+
+            videoPlayer.addEventListener('error', (e) => {
+                console.error('视频错误:', e);
+                overlayText.textContent = '视频加载失败';
+            });
+        }
+
+        function updateStreamInfo() {
+            streamInfo.style.display = 'flex';
+            protocolInfo.textContent = '协议: FLV';
+            if (videoPlayer.videoWidth && videoPlayer.videoHeight) {
+                resolutionInfo.textContent = `分辨率: ${videoPlayer.videoWidth}x${videoPlayer.videoHeight}`;
+            }
+            updateMuteStatus();
+        }
+
+        function stopPlayback() {
+            isPlaying = false;
+            isConnecting = false;
+            lastLiveStatus = null;
+
+            if (flvPlayer) {
+                flvPlayer.pause();
+                flvPlayer.unload();
+                flvPlayer.detachMediaElement();
+                flvPlayer.destroy();
+                flvPlayer = null;
+            }
+
+            videoPlayer.removeAttribute('src');
+            videoPlayer.load();
+            playerOverlay.classList.remove('hidden');
+            overlayText.textContent = '等待直播开始...';
+            streamInfo.style.display = 'none';
+            clickToUnmute.style.display = 'none';
+        }
+
+        // 点击视频区域取消静音
+        document.addEventListener('click', (e) => {
+            if (clickToUnmute.style.display !== 'none' &&
+                clickToUnmute.contains(e.target)) {
+                toggleMute();
+            }
+        });
+
+        fetchStatus();
+        setInterval(fetchStatus, 3000);
+    </script>
+</body>
+
+</html>
