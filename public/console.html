@@ -4,7 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>管理后台 - 单频道直播</title>
+    <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="apple-touch-icon" href="/logo.png">
+    <title>成都树德中学-直播管理后台</title>
     <style>
         * {
             margin: 0;
@@ -55,13 +57,9 @@
         .login-icon {
             width: 60px;
             height: 60px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             border-radius: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            object-fit: contain;
             margin: 0 auto 20px;
-            font-size: 28px;
             color: white;
         }
 
@@ -155,9 +153,26 @@
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
         }
 
+        .admin-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        }
+
         .admin-header h1 {
             font-size: 1.2rem;
             color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .admin-header h1 img {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            object-fit: contain;
         }
 
         .logout-btn {
@@ -379,7 +394,7 @@
     <div class="login-container" id="loginContainer">
         <div class="login-box">
             <div class="login-header">
-                <div class="login-icon">&#9881;</div>
+                <img src="/logo.png" class="login-icon" alt="Logo">
                 <h1>管理后台</h1>
                 <p>请登录以访问直播管理面板</p>
             </div>
@@ -398,7 +413,7 @@
 
     <div class="dashboard" id="dashboard">
         <div class="admin-header">
-            <h1>&#9881; 直播管理控制台</h1>
+            <h1><img src="/logo.png" alt="Logo"> 直播管理控制台</h1>
             <button class="logout-btn" onclick="handleLogout()">退出登录</button>
         </div>
 
@@ -467,6 +482,13 @@
                         <span style="display: flex; align-items: center; gap: 8px;">
                             <span class="info-value" id="flvUrl">-</span>
                             <button class="copy-btn" onclick="copyText('flvUrl')">复制</button>
+                        </span>
+                    </li>
+                    <li>
+                        <span class="info-label">HLS播放地址(推荐)</span>
+                        <span style="display: flex; align-items: center; gap: 8px;">
+                            <span class="info-value" id="hlsUrl">-</span>
+                            <button class="copy-btn" onclick="copyText('hlsUrl')">复制</button>
                         </span>
                     </li>
                     <li>
@@ -603,6 +625,7 @@
             if (status.server) {
                 document.getElementById('rtmpUrl').textContent = status.server.rtmpUrl || '-';
                 document.getElementById('flvUrl').textContent = status.server.flvUrl || '-';
+                document.getElementById('hlsUrl').textContent = status.server.hlsUrl || '-';
                 const host = window.location.hostname || 'localhost';
                 const rtmpPort = status.server.rtmpUrl ? new URL(status.server.rtmpUrl.replace('rtmp://', 'http://')).port : '1935';
                 document.getElementById('obsServer').textContent = `rtmp://${host}:${rtmpPort}/live`;

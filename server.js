@@ -46,6 +46,7 @@ app.get('/api/status', (req, res) => {
                 httpPort: mediaPort,
                 apiPort: apiPort,
                 flvUrl: `http://${host}:${mediaPort}/live/${config.stream.channelName}.flv`,
+                hlsUrl: `http://${host}:${mediaPort}/live/${config.stream.channelName}/index.m3u8`,
                 rtmpUrl: `rtmp://${host}:${config.rtmp.port}/live/${config.stream.channelName}`,
                 mediaUrl: `http://${host}:${mediaPort}`,
             },
@@ -142,6 +143,7 @@ app.listen(API_PORT, '0.0.0.0', () => {
     console.log(`  媒体服务端口:  ${MEDIA_PORT}`);
     console.log(`  RTMP推流地址: rtmp://localhost:${RTMP_PORT}/live/${config.stream.channelName}`);
     console.log(`  FLV播放地址:  http://localhost:${MEDIA_PORT}/live/${config.stream.channelName}.flv`);
+    console.log(`  HLS播放地址:  http://localhost:${MEDIA_PORT}/live/${config.stream.channelName}/index.m3u8`);
     console.log('========================================');
     console.log('  OBS推流配置:');
     console.log(`    服务器: rtmp://localhost:${RTMP_PORT}/live`);

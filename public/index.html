@@ -4,7 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>单频道直播</title>
+    <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="apple-touch-icon" href="/logo.png">
+    <title>成都树德中学-直播</title>
     <style>
         * {
             margin: 0;
@@ -39,14 +41,10 @@
         }
 
         .logo-icon {
-            width: 32px;
-            height: 32px;
-            background: #e94560;
+            width: 36px;
+            height: 36px;
             border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 18px;
+            object-fit: contain;
         }
 
         .status-indicator {
@@ -109,6 +107,277 @@
             height: 100%;
             display: block;
             object-fit: contain;
+        }
+
+        /* 自定义控制栏 */
+        .custom-controls {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(transparent, rgba(0, 0, 0, 0.85));
+            padding: 16px 20px 12px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            z-index: 15;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+
+        .custom-controls.hidden {
+            opacity: 0;
+            transform: translateY(100%);
+            pointer-events: none;
+        }
+
+        .control-btn {
+            background: none;
+            border: none;
+            color: #fff;
+            cursor: pointer;
+            padding: 6px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        .control-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .control-btn:active {
+            transform: scale(0.92);
+        }
+
+        .control-btn svg {
+            width: 22px;
+            height: 22px;
+            fill: currentColor;
+        }
+
+        .volume-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .volume-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 80px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 2px;
+            outline: none;
+            cursor: pointer;
+            transition: width 0.2s;
+        }
+
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            background: #e94560;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .volume-slider::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            background: #e94560;
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+        }
+
+        .live-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            background: rgba(255, 71, 87, 0.9);
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .live-badge::before {
+            content: '';
+            width: 7px;
+            height: 7px;
+            background: #fff;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+
+        .spacer {
+            flex: 1;
+        }
+
+        .control-info {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.7);
+            white-space: nowrap;
+        }
+
+        /* 设置菜单 */
+        .settings-wrapper {
+            position: relative;
+        }
+
+        .settings-menu {
+            position: absolute;
+            bottom: calc(100% + 8px);
+            right: 0;
+            background: rgba(20, 20, 30, 0.95);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 8px 0;
+            min-width: 220px;
+            display: none;
+            z-index: 30;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+
+        .settings-menu.show {
+            display: block;
+            animation: menuFadeIn 0.2s ease;
+        }
+
+        @keyframes menuFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .settings-menu-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 16px;
+            font-size: 0.85rem;
+            color: #ddd;
+        }
+
+        .settings-menu-item:hover {
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .settings-info {
+            font-size: 0.7rem;
+            color: #888;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            margin-top: 4px;
+            padding-top: 8px;
+        }
+
+        .settings-hint {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .settings-hint.supported::before {
+            content: '\2714';
+            color: #4ade80;
+        }
+
+        .settings-hint.unsupported::before {
+            content: '\2716';
+            color: #f87171;
+        }
+
+        /* Toggle 开关 */
+        .toggle-switch {
+            position: relative;
+            width: 40px;
+            height: 22px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 22px;
+            transition: 0.3s;
+        }
+
+        .toggle-slider::before {
+            content: '';
+            position: absolute;
+            height: 16px;
+            width: 16px;
+            left: 3px;
+            bottom: 3px;
+            background: #fff;
+            border-radius: 50%;
+            transition: 0.3s;
+        }
+
+        .toggle-switch input:checked+.toggle-slider {
+            background: #e94560;
+        }
+
+        .toggle-switch input:checked+.toggle-slider::before {
+            transform: translateX(18px);
+        }
+
+        .toggle-switch input:disabled+.toggle-slider {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        /* 播放格式选择器 */
+        .format-select {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            padding: 4px 8px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .format-select:hover {
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .format-select:focus {
+            border-color: #e94560;
+        }
+
+        .format-select option {
+            background: #1a1a2e;
+            color: #fff;
+        }
+
+        .settings-divider {
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            margin: 4px 0;
+            padding: 0;
+            height: 0;
         }
 
         .player-overlay {
@@ -226,8 +495,8 @@
 <body>
     <header>
         <div class="logo">
-            <div class="logo-icon">&#9679;</div>
-            <span>单频道直播</span>
+            <img src="/logo.png" class="logo-icon" alt="Logo">
+            <span>成都树德中学-直播</span>
         </div>
         <div class="status-indicator">
             <div class="status-dot" id="statusDot"></div>
@@ -237,27 +506,91 @@
 
     <main>
         <div class="player-container" id="playerContainer">
-            <video id="videoPlayer" controls autoplay muted playsinline></video>
+            <video id="videoPlayer" autoplay muted playsinline></video>
+
             <div class="player-overlay" id="playerOverlay">
                 <div class="loading-spinner"></div>
                 <div class="overlay-text" id="overlayText">等待直播开始...</div>
             </div>
+
             <div class="click-to-unmute" id="clickToUnmute" style="display: none;">
                 <div class="unmute-icon">&#128266;</div>
                 <div>点击开启声音</div>
             </div>
-            <div class="stream-info" id="streamInfo" style="display: none;">
-                <span id="protocolInfo">-</span>
-                <span id="resolutionInfo">-</span>
-                <span id="muteStatus" style="cursor: pointer;" onclick="toggleMute()">&#128263; 静音</span>
+
+            <div class="custom-controls" id="customControls">
+                <div class="live-badge">LIVE</div>
+
+                <button class="control-btn" id="playPauseBtn" title="播放/暂停">
+                    <svg id="playIcon" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                    </svg>
+                    <svg id="pauseIcon" viewBox="0 0 24 24" style="display:none">
+                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                    </svg>
+                </button>
+
+                <div class="volume-wrapper">
+                    <button class="control-btn" id="muteBtn" title="静音">
+                        <svg id="volumeOnIcon" viewBox="0 0 24 24">
+                            <path
+                                d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
+                        </svg>
+                        <svg id="volumeOffIcon" viewBox="0 0 24 24" style="display:none">
+                            <path
+                                d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" />
+                        </svg>
+                    </button>
+                    <input type="range" class="volume-slider" id="volumeSlider" min="0" max="100" value="100">
+                </div>
+
+                <div class="spacer"></div>
+
+                <span class="control-info" id="resolutionText"></span>
+
+                <button class="control-btn" id="fullscreenBtn" title="全屏">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z" />
+                    </svg>
+                </button>
+
+                <div class="settings-wrapper">
+                    <button class="control-btn" id="settingsBtn" title="设置">
+                        <svg viewBox="0 0 24 24">
+                            <path
+                                d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" />
+                        </svg>
+                    </button>
+                    <div class="settings-menu" id="settingsMenu">
+                        <div class="settings-menu-item">
+                            <span>播放格式</span>
+                            <select id="formatSelect" class="format-select" title="选择播放流格式">
+                                <option value="auto">自动</option>
+                                <option value="hls">HLS</option>
+                                <option value="flv">FLV</option>
+                            </select>
+                        </div>
+                        <div class="settings-divider"></div>
+                        <div class="settings-menu-item">
+                            <span>硬件加速解码</span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="hwAccelToggle">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="settings-menu-item settings-info" id="hwAccelStatus">
+                            <span class="settings-hint">检测中...</span>
+                        </div>
+                    </div>
+                </div>
             </div>
-        </div>
     </main>
 
     <footer>
         <p>&copy; 2024 单频道直播服务系统</p>
     </footer>
 
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@~1/dist/hls.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flv.js@latest"></script>
     <script>
         const videoPlayer = document.getElementById('videoPlayer');
@@ -265,32 +598,252 @@
         const overlayText = document.getElementById('overlayText');
         const statusDot = document.getElementById('statusDot');
         const statusText = document.getElementById('statusText');
-        const streamInfo = document.getElementById('streamInfo');
-        const protocolInfo = document.getElementById('protocolInfo');
-        const resolutionInfo = document.getElementById('resolutionInfo');
         const clickToUnmute = document.getElementById('clickToUnmute');
-        const muteStatus = document.getElementById('muteStatus');
+        const customControls = document.getElementById('customControls');
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const playIcon = document.getElementById('playIcon');
+        const pauseIcon = document.getElementById('pauseIcon');
+        const muteBtn = document.getElementById('muteBtn');
+        const volumeOnIcon = document.getElementById('volumeOnIcon');
+        const volumeOffIcon = document.getElementById('volumeOffIcon');
+        const volumeSlider = document.getElementById('volumeSlider');
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+        const resolutionText = document.getElementById('resolutionText');
+        const playerContainer = document.getElementById('playerContainer');
+        const settingsBtn = document.getElementById('settingsBtn');
+        const settingsMenu = document.getElementById('settingsMenu');
+        const hwAccelToggle = document.getElementById('hwAccelToggle');
+        const hwAccelStatus = document.getElementById('hwAccelStatus');
+        const hwAccelHint = hwAccelStatus.querySelector('.settings-hint');
+        const formatSelect = document.getElementById('formatSelect');
 
+        let hlsPlayer = null;
         let flvPlayer = null;
+        let currentEngine = null; // 'hls' | 'flv'
         let isPlaying = false;
         let isConnecting = false;
         let lastLiveStatus = null;
+        let controlsTimeout = null;
+        let hwAccelSupported = false;
+        let hwAccelEnabled = false;
+
+        // 播放格式偏好从 localStorage 读取（默认 auto）
+        let currentFormat = localStorage.getItem('playbackFormat') || 'auto';
+        if (!['auto', 'hls', 'flv'].includes(currentFormat)) currentFormat = 'auto';
+        formatSelect.value = currentFormat;
+
+        // === 播放格式切换 ===
+        formatSelect.addEventListener('change', () => {
+            const newFormat = formatSelect.value;
+            if (!['auto', 'hls', 'flv'].includes(newFormat)) return;
+            const prevFormat = currentFormat;
+            currentFormat = newFormat;
+            localStorage.setItem('playbackFormat', currentFormat);
+            console.log('播放格式切换:', prevFormat, '->', currentFormat);
+
+            const hlsUrl = lastHlsUrl;
+            const flvUrl = lastFlvUrl;
+
+            if (isPlaying || isConnecting) {
+                stopPlayback();
+                lastLiveStatus = true;
+                if (hlsUrl || flvUrl) {
+                    setTimeout(() => {
+                        startPlaybackWithFormat(hlsUrl, flvUrl);
+                    }, 300);
+                }
+            } else if (hlsUrl || flvUrl) {
+                lastLiveStatus = true;
+                startPlaybackWithFormat(hlsUrl, flvUrl);
+            }
+        });
+
+        // === GPU 硬件加速检测 ===
+        async function detectHWAccel() {
+            const canvas = document.createElement('canvas');
+            const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+
+            if (!gl) {
+                hwAccelSupported = false;
+                hwAccelHint.textContent = '不支持硬件加速';
+                hwAccelHint.className = 'settings-hint unsupported';
+                hwAccelToggle.disabled = true;
+                return;
+            }
+
+            // 检测 GPU 解码能力
+            const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+            const renderer = debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : '';
+
+            // 检查 MediaCapabilities API 是否支持硬件解码
+            try {
+                const config = {
+                    type: 'media',
+                    video: {
+                        contentType: 'video/mp4; codecs="avc1.42E01E"',
+                        width: 1280,
+                        height: 720,
+                        bitrate: 5000000,
+                        framerate: 30,
+                    },
+                };
+
+                const support = await navigator.mediaCapabilities.decodingInfo(config);
+                hwAccelSupported = support.supported && (support.powerEfficient || support.smooth);
+
+                if (hwAccelSupported) {
+                    const gpuName = renderer ? renderer.substring(0, 30) : 'GPU';
+                    hwAccelHint.textContent = `已检测: ${gpuName}`;
+                    hwAccelHint.className = 'settings-hint supported';
+                    hwAccelToggle.disabled = false;
+
+                    // 默认激活，除非用户曾主动关闭
+                    const savedPref = localStorage.getItem('hwAccel');
+                    if (savedPref !== 'false') {
+                        hwAccelToggle.checked = true;
+                        hwAccelEnabled = true;
+                        localStorage.setItem('hwAccel', 'true');
+                    } else {
+                        hwAccelToggle.checked = false;
+                        hwAccelEnabled = false;
+                    }
+                } else {
+                    hwAccelHint.textContent = '硬件解码不可用';
+                    hwAccelHint.className = 'settings-hint unsupported';
+                    hwAccelToggle.disabled = true;
+                }
+            } catch (e) {
+                // 降级: WebGL 可用即认为支持
+                hwAccelSupported = true;
+                hwAccelHint.textContent = renderer ? `已检测: ${renderer.substring(0, 30)}` : 'GPU 可用';
+                hwAccelHint.className = 'settings-hint supported';
+                hwAccelToggle.disabled = false;
+
+                const savedPref = localStorage.getItem('hwAccel');
+                if (savedPref !== 'false') {
+                    hwAccelToggle.checked = true;
+                    hwAccelEnabled = true;
+                    localStorage.setItem('hwAccel', 'true');
+                } else {
+                    hwAccelToggle.checked = false;
+                    hwAccelEnabled = false;
+                }
+            }
+        }
+
+        // === 设置菜单逻辑 ===
+        settingsBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            settingsMenu.classList.toggle('show');
+            showControls();
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!settingsMenu.contains(e.target) && e.target !== settingsBtn) {
+                settingsMenu.classList.remove('show');
+            }
+        });
+
+        hwAccelToggle.addEventListener('change', () => {
+            hwAccelEnabled = hwAccelToggle.checked;
+            localStorage.setItem('hwAccel', hwAccelEnabled ? 'true' : 'false');
+            console.log('硬件加速:', hwAccelEnabled ? '开启' : '关闭');
+
+            // 需要重建播放器以应用设置
+            if (isPlaying || isConnecting) {
+                if (currentEngine === 'hls' && lastHlsUrl) {
+                    stopPlayback();
+                    setTimeout(() => startHlsPlayback(lastHlsUrl), 300);
+                } else if (currentEngine === 'flv' && lastFlvUrl) {
+                    stopPlayback();
+                    setTimeout(() => startFlvPlayback(lastFlvUrl), 300);
+                }
+            }
+        });
+
+        // 恢复用户偏好
+        const savedHwAccel = localStorage.getItem('hwAccel');
+        if (savedHwAccel === 'false') {
+            // 用户主动关闭过，检测后不自动开启
+        }
+
+        // === 自定义控制栏逻辑 ===
+        function showControls() {
+            customControls.classList.remove('hidden');
+            clearTimeout(controlsTimeout);
+            controlsTimeout = setTimeout(() => {
+                if (isPlaying && !videoPlayer.paused && !settingsMenu.classList.contains('show')) {
+                    customControls.classList.add('hidden');
+                }
+            }, 3000);
+        }
+
+        playerContainer.addEventListener('mousemove', showControls);
+        playerContainer.addEventListener('touchstart', showControls);
+
+        playPauseBtn.addEventListener('click', () => {
+            if (videoPlayer.paused) {
+                forcePlay();
+            } else {
+                videoPlayer.pause();
+            }
+        });
+
+        muteBtn.addEventListener('click', toggleMute);
+
+        volumeSlider.addEventListener('input', (e) => {
+            const vol = e.target.value / 100;
+            videoPlayer.volume = vol;
+            videoPlayer.muted = vol === 0;
+            updateVolumeUI();
+        });
+
+        fullscreenBtn.addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+                playerContainer.requestFullscreen?.();
+            } else {
+                document.exitFullscreen?.();
+            }
+        });
 
         function toggleMute() {
             videoPlayer.muted = !videoPlayer.muted;
-            updateMuteStatus();
             if (!videoPlayer.muted) {
+                videoPlayer.volume = volumeSlider.value / 100;
                 clickToUnmute.style.display = 'none';
+            }
+            updateVolumeUI();
+        }
+
+        function updateVolumeUI() {
+            if (videoPlayer.muted || videoPlayer.volume === 0) {
+                volumeOnIcon.style.display = 'none';
+                volumeOffIcon.style.display = '';
+            } else {
+                volumeOnIcon.style.display = '';
+                volumeOffIcon.style.display = 'none';
             }
         }
 
-        function updateMuteStatus() {
-            if (videoPlayer.muted) {
-                muteStatus.textContent = '\u{1F507} 静音';
+        function updatePlayIcon() {
+            if (videoPlayer.paused) {
+                playIcon.style.display = '';
+                pauseIcon.style.display = 'none';
             } else {
-                muteStatus.textContent = '\u{1F50A} 有声';
+                playIcon.style.display = 'none';
+                pauseIcon.style.display = '';
             }
         }
+
+        videoPlayer.addEventListener('play', updatePlayIcon);
+        videoPlayer.addEventListener('pause', updatePlayIcon);
+        videoPlayer.addEventListener('volumechange', updateVolumeUI);
+        document.addEventListener('fullscreenchange', () => {
+            showControls();
+        });
+
+        // 点击取消静音
+        clickToUnmute.addEventListener('click', toggleMute);
 
         async function forcePlay() {
             try {
@@ -318,15 +871,23 @@
             }
         }
 
+        let lastHlsUrl = null;
+        let lastFlvUrl = null;
+
         function handleStatusChange(status) {
             if (status.live !== lastLiveStatus) {
                 lastLiveStatus = status.live;
 
                 if (status.live) {
                     updateStatusUI(true);
-                    const flvUrl = status.server ? status.server.flvUrl : null;
-                    if (flvUrl && !isPlaying && !isConnecting) {
-                        startFlvPlayback(flvUrl);
+                    const server = status.server || {};
+                    const hlsUrl = server.hlsUrl;
+                    const flvUrl = server.flvUrl;
+                    // 始终缓存最新 URL，供格式切换时使用（即使当前正在播放）
+                    if (hlsUrl) lastHlsUrl = hlsUrl;
+                    if (flvUrl) lastFlvUrl = flvUrl;
+                    if (!isPlaying && !isConnecting) {
+                        startPlaybackWithFormat(hlsUrl, flvUrl);
                     }
                 } else {
                     updateStatusUI(false);
@@ -337,24 +898,200 @@
             }
         }
 
+        // 根据当前选择的播放格式调度播放器
+        function startPlaybackWithFormat(hlsUrl, flvUrl) {
+            const fmt = currentFormat;
+            if (fmt === 'flv') {
+                if (flvUrl) {
+                    startFlvPlayback(flvUrl);
+                } else {
+                    console.warn('FLV URL 不可用');
+                    overlayText.textContent = 'FLV 流不可用';
+                }
+                return;
+            }
+            // hls / auto 都走 HLS 路径
+            // 仅 auto 模式允许失败时回退到 FLV
+            const allowFlvFallback = (fmt === 'auto');
+            if (hlsUrl) {
+                startHlsPlayback(hlsUrl, allowFlvFallback ? flvUrl : null);
+            } else if (allowFlvFallback && flvUrl) {
+                startFlvPlayback(flvUrl);
+            } else {
+                console.warn('无可用的播放流 URL');
+                overlayText.textContent = '无可用直播流';
+            }
+        }
+
         function updateStatusUI(isLive) {
             if (isLive) {
                 statusDot.classList.add('live');
                 statusText.textContent = '直播中';
                 statusText.classList.add('live');
+                customControls.classList.remove('hidden');
+                showControls();
             } else {
                 statusDot.classList.remove('live');
                 statusText.textContent = '离线';
                 statusText.classList.remove('live');
-                streamInfo.style.display = 'none';
+                customControls.classList.add('hidden');
             }
+        }
+
+        function startHlsPlayback(hlsUrl, fallbackFlvUrl) {
+            if (isConnecting || isPlaying) return;
+
+            // 浏览器原生 HLS 支持 (iOS Safari)
+            if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
+                isConnecting = true;
+                overlayText.textContent = '正在连接直播(HLS)...';
+                currentEngine = 'hls';
+                lastHlsUrl = hlsUrl;
+                videoPlayer.src = hlsUrl;
+
+                videoPlayer.addEventListener('loadedmetadata', onHlsNativeReady, { once: true });
+                videoPlayer.addEventListener('error', onHlsNativeError, { once: true });
+
+                // 原生 HLS 超时保护：8 秒内未触发 loadedmetadata 视为失败，回退到 hls.js
+                let nativeHlsTimer = setTimeout(() => {
+                    console.warn('原生 HLS 8 秒内未就绪，回退到 hls.js');
+                    onHlsNativeError();
+                }, 8000);
+
+                function onHlsNativeReady() {
+                    clearTimeout(nativeHlsTimer);
+                    isConnecting = false;
+                    isPlaying = true;
+                    currentEngine = 'hls';
+                    playerOverlay.classList.add('hidden');
+                    forcePlay();
+                    updateStreamInfo();
+                }
+
+                function onHlsNativeError() {
+                    clearTimeout(nativeHlsTimer);
+                    console.warn('原生 HLS 播放失败，尝试 hls.js');
+                    videoPlayer.removeEventListener('loadedmetadata', onHlsNativeReady);
+                    videoPlayer.removeEventListener('error', onHlsNativeError);
+                    videoPlayer.removeAttribute('src');
+                    startHlsJsPlayback(hlsUrl, fallbackFlvUrl);
+                }
+
+                videoPlayer.load();
+                return;
+            }
+
+            // hls.js
+            if (!window.Hls || !window.Hls.isSupported()) {
+                console.warn('hls.js 不支持，回退 FLV');
+                if (fallbackFlvUrl) startFlvPlayback(fallbackFlvUrl);
+                return;
+            }
+
+            startHlsJsPlayback(hlsUrl, fallbackFlvUrl);
+        }
+
+        function startHlsJsPlayback(hlsUrl, fallbackFlvUrl) {
+            isConnecting = true;
+            overlayText.textContent = '正在连接直播(HLS)...';
+            lastHlsUrl = hlsUrl;
+
+            const hlsConfig = {
+                enableWorker: true,
+                lowLatencyMode: false,
+                backBufferLength: 30,
+                maxBufferLength: 30,
+                maxMaxBufferLength: 60,
+                liveSyncDurationCount: 4,
+                liveMaxLatencyDurationCount: 8,
+                manifestLoadingTimeOut: 10000,
+                manifestLoadingMaxTimeOut: 20000,
+                levelLoadingTimeOut: 10000,
+                levelLoadingMaxTimeOut: 20000,
+                fragLoadingTimeOut: 20000,
+            };
+
+            try {
+                hlsPlayer = new window.Hls(hlsConfig);
+            } catch (e) {
+                console.error('创建 hls.js 失败:', e);
+                isConnecting = false;
+                if (fallbackFlvUrl) startFlvPlayback(fallbackFlvUrl);
+                return;
+            }
+
+            currentEngine = 'hls';
+
+            hlsPlayer.attachMedia(videoPlayer);
+            hlsPlayer.loadSource(hlsUrl);
+
+            hlsPlayer.on(window.Hls.Events.MANIFEST_PARSED, function () {
+                isConnecting = false;
+                isPlaying = true;
+                playerOverlay.classList.add('hidden');
+                forcePlay();
+                updateStreamInfo();
+            });
+
+            hlsPlayer.on(window.Hls.Events.ERROR, function (event, data) {
+                console.error('HLS 错误:', data.type, data.details, data.fatal);
+
+                if (data.fatal) {
+                    // 致命错误：尝试恢复，否则回退 FLV
+                    switch (data.type) {
+                        case window.Hls.ErrorTypes.NETWORK_ERROR:
+                            overlayText.textContent = '网络错误，重连中...';
+                            playerOverlay.classList.remove('hidden');
+                            try { hlsPlayer.startLoad(); } catch (e) { }
+                            break;
+                        case window.Hls.ErrorTypes.MEDIA_ERROR:
+                            try { hlsPlayer.recoverMediaError(); } catch (e) { }
+                            break;
+                        default:
+                            // 无法恢复，回退到 FLV
+                            console.warn('HLS 无法恢复，回退 FLV');
+                            stopPlayback();
+                            if (fallbackFlvUrl) {
+                                setTimeout(function () { startFlvPlayback(fallbackFlvUrl); }, 500);
+                            }
+                            break;
+                    }
+                }
+            });
+
+            videoPlayer.addEventListener('playing', onHlsPlaying);
+            function onHlsPlaying() {
+                playerOverlay.classList.add('hidden');
+                updateStreamInfo();
+                showControls();
+                if (videoPlayer.muted) {
+                    setTimeout(function () {
+                        if (videoPlayer.muted && isPlaying) {
+                            clickToUnmute.style.display = 'flex';
+                        }
+                    }, 500);
+                }
+            }
+
+            videoPlayer.addEventListener('waiting', function () {
+                if (!playerOverlay.classList.contains('hidden')) {
+                    overlayText.textContent = '缓冲中...';
+                }
+            });
+
+            videoPlayer.addEventListener('error', function (e) {
+                console.error('视频错误:', e);
+                overlayText.textContent = '视频加载失败';
+            });
         }
 
         function startFlvPlayback(flvUrl) {
             if (isConnecting || isPlaying) return;
 
             isConnecting = true;
-            overlayText.textContent = '正在连接直播...';
+            currentEngine = 'flv';
+            lastFlvUrl = flvUrl;
+            overlayText.textContent = '正在连接直播(FLV回退)...';
 
             flvPlayer = flvjs.createPlayer({
                 type: 'flv',
@@ -373,7 +1110,14 @@
                 liveBufferLatencyChasingOnPaused: true,
                 liveBufferLatencyMaxLatency: 3.0,
                 liveBufferLatencyMinRemain: 0.5,
+                // 硬件加速: 关闭软解回退，强制使用 GPU 解码路径
+                enableSoftwareMode: !hwAccelEnabled,
             });
+
+            // 硬件加速提示
+            if (hwAccelEnabled) {
+                console.log('硬件加速解码已激活');
+            }
 
             flvPlayer.attachMediaElement(videoPlayer);
             flvPlayer.load();
@@ -431,7 +1175,7 @@
             videoPlayer.addEventListener('playing', () => {
                 playerOverlay.classList.add('hidden');
                 updateStreamInfo();
-                // 播放成功后显示点击开启声音按钮
+                showControls();
                 if (videoPlayer.muted) {
                     setTimeout(() => {
                         if (videoPlayer.muted && isPlaying) {
@@ -452,24 +1196,37 @@
         }
 
         function updateStreamInfo() {
-            streamInfo.style.display = 'flex';
-            protocolInfo.textContent = '协议: FLV';
             if (videoPlayer.videoWidth && videoPlayer.videoHeight) {
-                resolutionInfo.textContent = `分辨率: ${videoPlayer.videoWidth}x${videoPlayer.videoHeight}`;
+                resolutionText.textContent = `${videoPlayer.videoWidth}x${videoPlayer.videoHeight}`;
             }
-            updateMuteStatus();
+            updatePlayIcon();
+            updateVolumeUI();
         }
 
         function stopPlayback() {
             isPlaying = false;
             isConnecting = false;
             lastLiveStatus = null;
+            currentEngine = null;
+
+            if (hlsPlayer) {
+                try {
+                    hlsPlayer.destroy();
+                } catch (e) {
+                    console.warn('销毁 hls.js 失败:', e);
+                }
+                hlsPlayer = null;
+            }
 
             if (flvPlayer) {
-                flvPlayer.pause();
-                flvPlayer.unload();
-                flvPlayer.detachMediaElement();
-                flvPlayer.destroy();
+                try {
+                    flvPlayer.pause();
+                    flvPlayer.unload();
+                    flvPlayer.detachMediaElement();
+                    flvPlayer.destroy();
+                } catch (e) {
+                    console.warn('销毁 flv.js 失败:', e);
+                }
                 flvPlayer = null;
             }
 
@@ -477,8 +1234,9 @@
             videoPlayer.load();
             playerOverlay.classList.remove('hidden');
             overlayText.textContent = '等待直播开始...';
-            streamInfo.style.display = 'none';
             clickToUnmute.style.display = 'none';
+            customControls.classList.add('hidden');
+            resolutionText.textContent = '';
         }
 
         // 点击视频区域取消静音
@@ -488,6 +1246,9 @@
                 toggleMute();
             }
         });
+
+        // 页面加载时检测硬件加速
+        detectHWAccel();
 
         fetchStatus();
         setInterval(fetchStatus, 3000);
