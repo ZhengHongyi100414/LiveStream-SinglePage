@@ -19,16 +19,7 @@ module.exports = {
     },
     trans: {
         ffmpeg: '/usr/bin/ffmpeg',
-        tasks: [
-            {
-                app: 'live',
-                hls: true,
-                hlsFlags: '[f=hls:hls_time=2:hls_list_size=6:hls_flags=delete_segments+append_list+omit_endlist+independent_segments]',
-                vc: 'libx264',
-                vcParam: ['-preset', 'veryfast', '-tune', 'zerolatency', '-g', '60', '-keyint_min', '60', '-bf', '0', '-r', '30', '-bsf:v', 'dump_extra=freq=k'],
-                ac: 'copy',
-            },
-        ],
+        tasks: [],
     },
     admin: {
         username: 'admin',

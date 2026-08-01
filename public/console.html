@@ -421,17 +421,6 @@
             <div class="stats-grid">
                 <div class="stat-card">
                     <div class="stat-card-header">
-                        <span class="stat-card-title">直播状态</span>
-                        <div class="stat-icon live">&#9679;</div>
-                    </div>
-                    <div class="live-status">
-                        <span class="stat-value" id="statusValue">离线</span>
-                    </div>
-                    <div id="statusBadge" class="status-badge offline">OFFLINE</div>
-                </div>
-
-                <div class="stat-card">
-                    <div class="stat-card-header">
                         <span class="stat-card-title">观看人数</span>
                         <div class="stat-icon viewers">&#128100;</div>
                     </div>
@@ -441,11 +430,20 @@
 
                 <div class="stat-card">
                     <div class="stat-card-header">
+                        <span class="stat-card-title">分辨率</span>
+                        <div class="stat-icon bitrate">&#128246;</div>
+                    </div>
+                    <div class="stat-value small" id="resolutionValue">-</div>
+                    <div class="stat-label" id="fpsLabel">帧率 -</div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-card-header">
                         <span class="stat-card-title">码率</span>
                         <div class="stat-icon bitrate">&#128246;</div>
                     </div>
                     <div class="stat-value small" id="bitrateValue">0 Kbps</div>
-                    <div class="stat-label">视频码率</div>
+                    <div class="stat-label" id="audioBitrateLabel">音频码率 0 Kbps</div>
                 </div>
 
                 <div class="stat-card">
@@ -456,14 +454,60 @@
                     <div class="stat-value small" id="durationValue">00:00:00</div>
                     <div class="stat-label">已直播时长</div>
                 </div>
+
+                <div class="stat-card">
+                    <div class="stat-card-header">
+                        <span class="stat-card-title">推送输出</span>
+                        <div class="stat-icon bitrate">&#128246;</div>
+                    </div>
+                    <div class="stat-value small" id="outputBitrateValue">0 Kbps</div>
+                    <div class="stat-label" id="outputResLabel">- @ - fps</div>
+                </div>
             </div>
 
             <div class="control-panel">
-                <h2>直播控制</h2>
+                <h2>直播控制 <span id="statusBadge" class="status-badge offline"
+                        style="margin-left:8px;vertical-align:middle;">OFFLINE</span></h2>
                 <div class="control-buttons">
                     <button class="btn btn-success" id="startBtn" onclick="startStream()">启动直播</button>
                     <button class="btn btn-danger" id="stopBtn" onclick="stopStream()">停止直播</button>
                     <button class="btn btn-primary" onclick="refreshStatus()">刷新状态</button>
+                </div>
+            </div>
+
+            <div class="control-panel">
+                <h2>转码设置 <span id="transcodeLockHint" style="font-size:0.8rem;color:#888;font-weight:normal;"></span>
+                </h2>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:16px;align-items:end;">
+                    <div class="form-group" style="margin:0;">
+                        <label style="font-size:0.85rem;color:#888;margin-bottom:6px;">输出分辨率</label>
+                        <select id="tcResolution"
+                            style="width:100%;padding:8px 12px;border:2px solid #e0e0e0;border-radius:6px;font-size:0.9rem;">
+                            <option value="1080p">1080p (放大)</option>
+                            <option value="720p">720p (原始)</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin:0;">
+                        <label style="font-size:0.85rem;color:#888;margin-bottom:6px;">帧率</label>
+                        <select id="tcFps"
+                            style="width:100%;padding:8px 12px;border:2px solid #e0e0e0;border-radius:6px;font-size:0.9rem;">
+                            <option value="30">30 fps</option>
+                            <option value="24">24 fps</option>
+                            <option value="60">60 fps</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin:0;">
+                        <label style="font-size:0.85rem;color:#888;margin-bottom:6px;">质量 (CRF)</label>
+                        <select id="tcCrf"
+                            style="width:100%;padding:8px 12px;border:2px solid #e0e0e0;border-radius:6px;font-size:0.9rem;">
+                            <option value="18">高 (CRF 18)</option>
+                            <option value="20">中高 (CRF 20)</option>
+                            <option value="23">中 (CRF 23)</option>
+                            <option value="28">低 (CRF 28)</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" id="tcSaveBtn" onclick="saveTranscodeSettings()"
+                        style="width:auto;min-width:100px;">保存</button>
                 </div>
             </div>
 
@@ -564,6 +608,7 @@
             document.getElementById('loginContainer').style.display = 'none';
             document.getElementById('dashboard').classList.add('active');
             refreshStatus();
+            loadTranscodeSettings();
             if (statusInterval) clearInterval(statusInterval);
             statusInterval = setInterval(refreshStatus, 3000);
         }
@@ -581,7 +626,6 @@
         }
 
         function updateDashboard(status) {
-            const statusValue = document.getElementById('statusValue');
             const statusBadge = document.getElementById('statusBadge');
             const viewersCount = document.getElementById('viewersCount');
             const bitrateValue = document.getElementById('bitrateValue');
@@ -589,8 +633,18 @@
             const startBtn = document.getElementById('startBtn');
             const stopBtn = document.getElementById('stopBtn');
 
+            // 转码设置：直播时禁用
+            const tcControls = ['tcResolution', 'tcFps', 'tcCrf', 'tcSaveBtn'];
+            const lockHint = document.getElementById('transcodeLockHint');
+            tcControls.forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.disabled = status.live;
+                el.style.opacity = status.live ? '0.5' : '1';
+            });
+            lockHint.textContent = status.live ? '（直播中，已锁定）' : '';
+
             if (status.live) {
-                statusValue.textContent = '直播中';
                 statusBadge.textContent = 'LIVE';
                 statusBadge.className = 'status-badge live';
                 startBtn.disabled = true;
@@ -598,7 +652,6 @@
                 startBtn.style.opacity = '0.5';
                 stopBtn.style.opacity = '1';
             } else {
-                statusValue.textContent = '离线';
                 statusBadge.textContent = 'OFFLINE';
                 statusBadge.className = 'status-badge offline';
                 startBtn.disabled = false;
@@ -608,7 +661,12 @@
             }
 
             viewersCount.textContent = status.viewers || 0;
-            bitrateValue.textContent = status.bitrate ? status.bitrate + ' Kbps' : '0 Kbps';
+            bitrateValue.textContent = (status.videoBitrate || status.bitrate || 0) + ' Kbps';
+            document.getElementById('resolutionValue').textContent = status.resolution || '-';
+            document.getElementById('fpsLabel').textContent = '帧率 ' + (status.fps || 0) + ' fps';
+            document.getElementById('audioBitrateLabel').textContent = '音频码率 ' + (status.audioBitrate || 0) + ' Kbps';
+            document.getElementById('outputBitrateValue').textContent = (status.outputBitrate || 0) + ' Kbps';
+            document.getElementById('outputResLabel').textContent = (status.outputResolution || '-') + ' @ ' + (status.outputFps || 0) + ' fps';
 
             if (status.startedAt) {
                 const startedAt = new Date(status.startedAt);
@@ -683,6 +741,42 @@
                 refreshStatus();
             } catch (err) {
                 alert('操作失败');
+            }
+        }
+
+        async function loadTranscodeSettings() {
+            try {
+                const res = await fetch('/api/transcode/settings');
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('tcResolution').value = data.data.resolution;
+                    document.getElementById('tcFps').value = data.data.fps;
+                    document.getElementById('tcCrf').value = data.data.crf;
+                }
+            } catch (e) { /* 忽略 */ }
+        }
+
+        async function saveTranscodeSettings() {
+            const token = localStorage.getItem('adminToken');
+            const body = {
+                resolution: document.getElementById('tcResolution').value,
+                fps: Number(document.getElementById('tcFps').value),
+                crf: Number(document.getElementById('tcCrf').value),
+            };
+            try {
+                const res = await fetch('/api/transcode/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
+                    body: JSON.stringify(body),
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert('转码设置已保存');
+                } else {
+                    alert(data.message || '保存失败');
+                }
+            } catch (e) {
+                alert('保存失败');
             }
         }
 
