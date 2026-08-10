@@ -1,0 +1,10 @@
+diff --git a/node_modules/http2-express/src/util.js b/node_modules/http2-express/src/util.js
+index 0000000..1111111 100644
+--- a/node_modules/http2-express/src/util.js
++++ b/node_modules/http2-express/src/util.js
+@@ -12,5 +12,6 @@ exports.isHttp2Request = (req) => {
+   if (req.httpVersion !== '2.0') return false;
+-  const alpnProtocol = req.stream?.session?.alpnProtocol;
++  const alpnProtocol = req.stream && req.stream.session ? req.stream.session.alpnProtocol : undefined;
+   return alpnProtocol === 'h2' || alpnProtocol === 'h2c';
+ };

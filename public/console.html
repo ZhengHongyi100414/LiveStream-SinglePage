@@ -462,6 +462,7 @@
                     </div>
                     <div class="stat-value small" id="outputBitrateValue">0 Kbps</div>
                     <div class="stat-label" id="outputResLabel">- @ - fps</div>
+                    <div class="stat-label" id="transcodeModeLabel" style="color:#888;"></div>
                 </div>
             </div>
 
@@ -667,6 +668,16 @@
             document.getElementById('audioBitrateLabel').textContent = '音频码率 ' + (status.audioBitrate || 0) + ' Kbps';
             document.getElementById('outputBitrateValue').textContent = (status.outputBitrate || 0) + ' Kbps';
             document.getElementById('outputResLabel').textContent = (status.outputResolution || '-') + ' @ ' + (status.outputFps || 0) + ' fps';
+            const modeLabel = document.getElementById('transcodeModeLabel');
+            if (status.transcodeMode === 'copy') {
+                modeLabel.textContent = '直通模式（零转码，省 CPU）';
+                modeLabel.style.color = '#4caf50';
+            } else if (status.transcodeMode === 'transcode') {
+                modeLabel.textContent = '转码模式（重编码中）';
+                modeLabel.style.color = '#ff9800';
+            } else {
+                modeLabel.textContent = '';
+            }
 
             if (status.startedAt) {
                 const startedAt = new Date(status.startedAt);

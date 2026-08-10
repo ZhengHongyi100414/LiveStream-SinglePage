@@ -506,7 +506,7 @@
 
     <main>
         <div class="player-container" id="playerContainer">
-            <video id="videoPlayer" autoplay muted playsinline></video>
+            <video id="videoPlayer" playsinline></video>
 
             <div class="player-overlay" id="playerOverlay">
                 <div class="loading-spinner"></div>
@@ -541,7 +541,7 @@
                                 d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" />
                         </svg>
                     </button>
-                    <input type="range" class="volume-slider" id="volumeSlider" min="0" max="100" value="100">
+                    <input type="range" class="volume-slider" id="volumeSlider" min="0" max="100" value="50">
                 </div>
 
                 <div class="spacer"></div>
@@ -590,8 +590,8 @@
         <p>&copy; 2024 单频道直播服务系统</p>
     </footer>
 
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@~1/dist/hls.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/flv.js@latest"></script>
+    <script src="vendor/hls.min.js"></script>
+    <script src="vendor/flv.min.js"></script>
     <script>
         const videoPlayer = document.getElementById('videoPlayer');
         const playerOverlay = document.getElementById('playerOverlay');
@@ -607,6 +607,7 @@
         const volumeOnIcon = document.getElementById('volumeOnIcon');
         const volumeOffIcon = document.getElementById('volumeOffIcon');
         const volumeSlider = document.getElementById('volumeSlider');
+        videoPlayer.volume = 0.5;  // 默认音量 50%
         const fullscreenBtn = document.getElementById('fullscreenBtn');
         const resolutionText = document.getElementById('resolutionText');
         const playerContainer = document.getElementById('playerContainer');
@@ -845,10 +846,19 @@
         // 点击取消静音
         clickToUnmute.addEventListener('click', toggleMute);
 
+        // 点击遮罩层开始播放（处理自动播放策略拦截）
+        playerOverlay.addEventListener('click', () => {
+            forcePlay();
+        });
+
         async function forcePlay() {
             try {
                 await videoPlayer.play();
                 console.log('播放成功');
+                // 播放成功后隐藏遮罩
+                if (!videoPlayer.paused) {
+                    playerOverlay.classList.add('hidden');
+                }
             } catch (err) {
                 console.warn('播放失败:', err.message);
                 // 如果因为自动播放策略失败，提示用户点击
@@ -998,12 +1008,12 @@
 
             const hlsConfig = {
                 enableWorker: true,
-                lowLatencyMode: false,
-                backBufferLength: 30,
-                maxBufferLength: 30,
-                maxMaxBufferLength: 60,
-                liveSyncDurationCount: 4,
-                liveMaxLatencyDurationCount: 8,
+                lowLatencyMode: true,
+                backBufferLength: 10,
+                maxBufferLength: 15,
+                maxMaxBufferLength: 20,
+                liveSyncDurationCount: 2,
+                liveMaxLatencyDurationCount: 4,
                 manifestLoadingTimeOut: 10000,
                 manifestLoadingMaxTimeOut: 20000,
                 levelLoadingTimeOut: 10000,
