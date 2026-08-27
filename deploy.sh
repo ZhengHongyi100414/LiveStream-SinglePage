@@ -1,351 +1,281 @@
 #!/usr/bin/env bash
-# ============================================================
-#  单频道在线直播服务系统 —— 一键部署脚本
-#  兼容 Debian/Ubuntu 和 RHEL/CentOS/Fedora
-#  用法: sudo bash deploy.sh
-# ============================================================
+#
+# LiveStream 一键部署脚本
+# 兼容 Debian/Ubuntu 和 RHEL/CentOS/Fedora
+# 用法: curl -fsSL <raw-url> | bash -s -- [--dir /path/to/install]
+#
 set -euo pipefail
 
-# ---------- 颜色与日志 ----------
+# ── 颜色 ──────────────────────────────────────────────
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
 info()  { echo -e "${CYAN}[INFO]${NC}  $*"; }
 ok()    { echo -e "${GREEN}[OK]${NC}    $*"; }
 warn()  { echo -e "${YELLOW}[WARN]${NC}  $*"; }
-err()   { echo -e "${RED}[ERROR]${NC} $*" >&2; }
+err()   { echo -e "${RED}[ERR]${NC}   $*" >&2; }
 die()   { err "$*"; exit 1; }
 
-# ---------- 前置检查 ----------
-[[ $EUID -eq 0 ]] || die "请使用 root 权限运行: sudo bash deploy.sh"
+# ── 参数解析 ──────────────────────────────────────────
+INSTALL_DIR="/opt/LiveStream"
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --dir) INSTALL_DIR="$2"; shift 2 ;;
+        *) die "未知参数: $1" ;;
+    esac
+done
 
-# ---------- 检测发行版 ----------
-detect_os() {
-    if [[ -f /etc/os-release ]]; then
-        . /etc/os-release
-        OS_ID="${ID,,}"          # 小写
-        OS_LIKE="${ID_LIKE:-$OS_ID}"
-        OS_LIKE="${OS_LIKE,,}"
-        OS_VERSION="${VERSION_ID:-unknown}"
-    elif command -v lsb_release &>/dev/null; then
-        OS_ID=$(lsb_release -si | tr '[:upper:]' '[:lower:]')
-        OS_LIKE="$OS_ID"
-        OS_VERSION=$(lsb_release -sr)
+# ── 权限检查 ──────────────────────────────────────────
+[[ $EUID -eq 0 ]] || die "请使用 root 权限运行 (sudo bash deploy.sh)"
+
+# ── 检测包管理器 ──────────────────────────────────────
+detect_pkg_mgr() {
+    if command -v apt-get &>/dev/null; then
+        PKG_MGR="apt"
+    elif command -v dnf &>/dev/null; then
+        PKG_MGR="dnf"
+    elif command -v yum &>/dev/null; then
+        PKG_MGR="yum"
     else
-        die "无法检测操作系统发行版"
+        die "未检测到 apt/dnf/yum，暂不支持此系统"
     fi
-
-    if [[ "$OS_LIKE" == *"debian"* || "$OS_LIKE" == *"ubuntu"* || "$OS_ID" == "debian" || "$OS_ID" == "ubuntu" || "$OS_ID" == "linuxmint" || "$OS_ID" == "deepin" || "$OS_ID" == "kali" ]]; then
-        PKG_TYPE="deb"
-    elif [[ "$OS_LIKE" == *"rhel"* || "$OS_LIKE" == *"fedora"* || "$OS_LIKE" == *"centos"* || "$OS_ID" == "rhel" || "$OS_ID" == "centos" || "$OS_ID" == "fedora" || "$OS_ID" == "rocky" || "$OS_ID" == "almalinux" || "$OS_ID" == "ol" ]]; then
-        PKG_TYPE="rpm"
-    else
-        warn "未识别的发行版 ($OS_ID)，尝试按 Debian 方式处理"
-        PKG_TYPE="deb"
-    fi
-
-    info "检测到系统: $OS_ID $OS_VERSION (包管理: $PKG_TYPE)"
+    info "包管理器: $PKG_MGR"
 }
 
-# ---------- 包管理器封装 ----------
-pkg_update() {
-    if [[ "$PKG_TYPE" == "deb" ]]; then
-        apt-get update -qq
-    else
-        if command -v dnf &>/dev/null; then
-            dnf makecache -q
-        else
-            yum makecache -q
-        fi
-    fi
-}
-
-pkg_install() {
-    if [[ "$PKG_TYPE" == "deb" ]]; then
-        apt-get install -y -qq "$@"
-    else
-        if command -v dnf &>/dev/null; then
-            dnf install -y -q "$@"
-        else
-            yum install -y -q "$@"
-        fi
-    fi
-}
-
-# ---------- 安装基础工具 ----------
-install_base_tools() {
-    info "安装基础工具 (curl, git, ca-certificates) ..."
-    if [[ "$PKG_TYPE" == "deb" ]]; then
-        pkg_install curl git ca-certificates gnupg
-    else
-        pkg_install curl git ca-certificates gnupg2
-    fi
+# ── 安装基础依赖 ──────────────────────────────────────
+install_base() {
+    info "安装基础工具..."
+    case "$PKG_MGR" in
+        apt) apt-get update -qq && apt-get install -y -qq curl git ca-certificates ;;
+        dnf) dnf install -y -q curl git ca-certificates ;;
+        yum) yum install -y -q curl git ca-certificates ;;
+    esac
     ok "基础工具就绪"
 }
 
-# ---------- 安装 Node.js 18.x ----------
-install_nodejs() {
+# ── 安装 Node.js ─────────────────────────────────────
+install_node() {
     if command -v node &>/dev/null; then
         local ver
         ver=$(node -v | sed 's/v//' | cut -d. -f1)
-        if (( ver >= 16 )); then
-            ok "Node.js 已安装: $(node -v) (满足 >=16 要求)"
+        if [[ $ver -ge 16 ]]; then
+            ok "Node.js $(node -v) 已安装，跳过"
             return
-        else
-            warn "Node.js 版本过低 ($(node -v))，将安装 18.x ..."
         fi
+        warn "Node.js 版本过低 ($(node -v))，将升级..."
     fi
 
-    info "安装 Node.js 18.x LTS ..."
-    if [[ "$PKG_TYPE" == "deb" ]]; then
-        curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
-        apt-get install -y -qq nodejs
-    else
-        curl -fsSL https://rpm.nodesource.com/setup_18.x | bash -
-        if command -v dnf &>/dev/null; then
-            dnf install -y -q nodejs
-        else
-            yum install -y -q nodejs
-        fi
-    fi
+    info "安装 Node.js 18.x LTS..."
+    case "$PKG_MGR" in
+        apt)
+            curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+            apt-get install -y -qq nodejs
+            ;;
+        dnf|yum)
+            curl -fsSL https://rpm.nodesource.com/setup_18.x | bash -
+            $PKG_MGR install -y -q nodejs
+            ;;
+    esac
     ok "Node.js $(node -v) 安装完成"
 }
 
-# ---------- 安装 FFmpeg ----------
+# ── 安装 FFmpeg ───────────────────────────────────────
 install_ffmpeg() {
     if command -v ffmpeg &>/dev/null && command -v ffprobe &>/dev/null; then
-        ok "FFmpeg 已安装: $(ffmpeg -version 2>&1 | head -1 | awk '{print $3}')"
+        ok "FFmpeg 已安装，跳过"
         return
     fi
 
-    info "安装 FFmpeg ..."
-    if [[ "$PKG_TYPE" == "deb" ]]; then
-        pkg_install ffmpeg
+    info "安装 FFmpeg..."
+    case "$PKG_MGR" in
+        apt)
+            apt-get install -y -qq ffmpeg
+            ;;
+        dnf)
+            # 尝试 RPM Fusion
+            local rhel_ver
+            rhel_ver=$(rpm -E %{rhel} 2>/dev/null || echo "8")
+            dnf install -y -q epel-release 2>/dev/null || true
+            dnf install -y -q "https://download1.rpmfusion.org/free/el/rpmfusion-free-release-${rhel_ver}.noarch.rpm" 2>/dev/null || true
+            dnf install -y -q ffmpeg || install_ffmpeg_static
+            ;;
+        yum)
+            local rhel_ver
+            rhel_ver=$(rpm -E %{rhel} 2>/dev/null || echo "7")
+            yum install -y -q epel-release 2>/dev/null || true
+            yum install -y -q "https://download1.rpmfusion.org/free/el/rpmfusion-free-release-${rhel_ver}.noarch.rpm" 2>/dev/null || true
+            yum install -y -q ffmpeg || install_ffmpeg_static
+            ;;
+    esac
+
+    if command -v ffmpeg &>/dev/null; then
+        ok "FFmpeg 安装完成"
     else
-        # RHEL/CentOS 需要 RPM Fusion
-        local rhel_ver
-        rhel_ver=$(rpm -E %{rhel} 2>/dev/null || echo "8")
-
-        # 尝试安装 EPEL
-        pkg_install epel-release 2>/dev/null || true
-
-        # 尝试安装 RPM Fusion（免费）
-        if ! rpm -q rpmfusion-free-release &>/dev/null; then
-            pkg_install "https://download1.rpmfusion.org/free/el/rpmfusion-free-release-${rhel_ver}.noarch.rpm" 2>/dev/null || {
-                warn "RPM Fusion 安装失败，尝试从 EPEL 安装 ffmpeg ..."
-            }
-        fi
-
-        if command -v dnf &>/dev/null; then
-            dnf install -y -q ffmpeg 2>/dev/null || {
-                warn "dnf 安装 ffmpeg 失败，尝试静态构建 ..."
-                install_ffmpeg_static
-                return
-            }
-        else
-            yum install -y -q ffmpeg 2>/dev/null || {
-                warn "yum 安装 ffmpeg 失败，尝试静态构建 ..."
-                install_ffmpeg_static
-                return
-            }
-        fi
-    fi
-
-    if command -v ffmpeg &>/dev/null && command -v ffprobe &>/dev/null; then
-        ok "FFmpeg $(ffmpeg -version 2>&1 | head -1 | awk '{print $3}') 安装完成"
-    else
-        die "FFmpeg 安装失败，请手动安装后重试"
+        die "FFmpeg 安装失败"
     fi
 }
 
-# 静态 FFmpeg 兜底（适用于无法通过包管理器安装的场景）
+# ── FFmpeg 静态二进制兜底 ─────────────────────────────
 install_ffmpeg_static() {
-    info "下载静态 FFmpeg ..."
+    warn "包管理器安装 FFmpeg 失败，下载静态构建..."
     local arch
     arch=$(uname -m)
     local url
-    if [[ "$arch" == "x86_64" ]]; then
-        url="https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz"
-    elif [[ "$arch" == "aarch64" ]]; then
-        url="https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-arm64-static.tar.xz"
-    else
-        die "不支持的架构: $arch，无法安装静态 FFmpeg"
-    fi
+    case "$arch" in
+        x86_64)  url="https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz" ;;
+        aarch64) url="https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-arm64-static.tar.xz" ;;
+        *) die "不支持的架构: $arch" ;;
+    esac
 
-    local tmpdir
-    tmpdir=$(mktemp -d)
-    curl -fSL "$url" -o "$tmpdir/ffmpeg.tar.xz"
-    tar -xJf "$tmpdir/ffmpeg.tar.xz" -C "$tmpdir"
-    local bin_dir
-    bin_dir=$(find "$tmpdir" -maxdepth 1 -type d -name 'ffmpeg-*' | head -1)
-    cp "$bin_dir/ffmpeg" "$bin_dir/ffprobe" /usr/local/bin/
-    chmod +x /usr/local/bin/ffmpeg /usr/local/bin/ffprobe
-    rm -rf "$tmpdir"
-
-    # 覆盖 config.js 中的 ffmpeg 路径
-    FFMPEG_PATH="/usr/local/bin/ffmpeg"
-    ok "静态 FFmpeg 安装到 /usr/local/bin/"
+    local tmp
+    tmp=$(mktemp -d)
+    curl -fSL "$url" -o "$tmp/ffmpeg.tar.xz"
+    tar -xJf "$tmp/ffmpeg.tar.xz" -C "$tmp"
+    local bindir
+    bindir=$(find "$tmp" -maxdepth 1 -type d -name 'ffmpeg-*' | head -1)
+    install -m 755 "$bindir/ffmpeg"  /usr/local/bin/ffmpeg
+    install -m 755 "$bindir/ffprobe" /usr/local/bin/ffprobe
+    rm -rf "$tmp"
+    ok "FFmpeg 静态构建安装到 /usr/local/bin/"
 }
 
-# ---------- 安装 PM2 ----------
+# ── 安装 PM2 ──────────────────────────────────────────
 install_pm2() {
     if command -v pm2 &>/dev/null; then
-        ok "PM2 已安装: $(pm2 -v)"
+        ok "PM2 $(pm2 -v) 已安装，跳过"
         return
     fi
-    info "安装 PM2 进程管理器 ..."
+    info "安装 PM2..."
     npm install -g pm2
     ok "PM2 $(pm2 -v) 安装完成"
 }
 
-# ---------- 部署项目 ----------
+# ── 部署项目 ──────────────────────────────────────────
 deploy_project() {
-    local install_dir="${INSTALL_DIR:-/opt/LiveStream}"
-
-    if [[ -d "$install_dir/.git" ]]; then
-        info "检测到已有项目目录，拉取最新代码 ..."
-        cd "$install_dir"
-        git pull --ff-only 2>/dev/null || {
-            warn "git pull 失败，跳过更新"
-        }
-    elif [[ -d "$install_dir" ]] && [[ -f "$install_dir/package.json" ]]; then
-        info "使用已有项目目录: $install_dir"
-        cd "$install_dir"
+    if [[ -d "$INSTALL_DIR/.git" ]]; then
+        info "检测到已有仓库，拉取最新..."
+        cd "$INSTALL_DIR"
+        git pull --ff-only || warn "git pull 失败，使用现有代码"
+    elif [[ -f "$INSTALL_DIR/package.json" ]]; then
+        info "目录已存在且含 package.json，跳过克隆"
+        cd "$INSTALL_DIR"
     else
-        info "克隆项目到 $install_dir ..."
-        mkdir -p "$(dirname "$install_dir")"
-        git clone https://github.com/ZhengHongyi100414/LiveStream-SinglePage.git "$install_dir"
-        cd "$install_dir"
+        info "克隆项目到 $INSTALL_DIR..."
+        git clone https://github.com/ZhengHongyi100414/LiveStream-SinglePage.git "$INSTALL_DIR"
+        cd "$INSTALL_DIR"
     fi
 
-    PROJECT_DIR="$install_dir"
+    info "安装 npm 依赖..."
+    npm install --unsafe-perm
 
-    info "安装 npm 依赖 (含 patch-package 补丁) ..."
-    npm install --unsafe-perm 2>&1 | tail -5
-
-    # 如果 FFmpeg 不在默认路径，更新 config.js
-    if [[ -n "${FFMPEG_PATH:-}" ]]; then
-        sed -i "s|ffmpeg: '/usr/bin/ffmpeg'|ffmpeg: '$FFMPEG_PATH'|" config.js
-        info "已更新 config.js 中的 ffmpeg 路径为 $FFMPEG_PATH"
+    # 自动修正 ffmpeg 路径
+    local ffmpeg_path
+    ffmpeg_path=$(which ffmpeg)
+    if [[ "$ffmpeg_path" != "/usr/bin/ffmpeg" ]]; then
+        sed -i "s|/usr/bin/ffmpeg|$ffmpeg_path|g" config.js
+        info "已将 config.js 中 ffmpeg 路径修正为 $ffmpeg_path"
     fi
 
-    # 确保 config.js 中的 ffmpeg 路径与实际一致
-    local actual_ffmpeg
-    actual_ffmpeg=$(which ffmpeg)
-    if [[ "$actual_ffmpeg" != "/usr/bin/ffmpeg" ]]; then
-        sed -i "s|ffmpeg: '/usr/bin/ffmpeg'|ffmpeg: '$actual_ffmpeg'|" config.js
-        info "已更新 ffmpeg 路径: $actual_ffmpeg"
-    fi
-
-    ok "项目部署完成: $PROJECT_DIR"
+    ok "项目部署完成 → $INSTALL_DIR"
 }
 
-# ---------- 启动服务 ----------
+# ── 启动服务 ──────────────────────────────────────────
 start_service() {
-    cd "$PROJECT_DIR"
-
-    # 停止旧进程（如果存在）
+    cd "$INSTALL_DIR"
+    # 清理旧进程
     pm2 delete livestream 2>/dev/null || true
 
-    info "使用 PM2 启动服务 ..."
+    info "启动 LiveStream..."
     pm2 start server.js --name livestream --max-memory-restart 512M
-
-    # 保存进程列表 + 设置开机自启
     pm2 save
-    pm2 startup systemd -u root --hp /root 2>/dev/null || pm2 startup 2>/dev/null || warn "PM2 开机自启设置失败，可手动执行 pm2 startup"
+
+    # 开机自启
+    pm2 startup systemd -u root --hp /root 2>/dev/null \
+        || pm2 startup 2>/dev/null \
+        || warn "PM2 开机自启设置失败，可手动执行: pm2 startup"
 
     ok "服务已启动"
 }
 
-# ---------- 配置防火墙 ----------
-configure_firewall() {
-    info "配置防火墙规则 ..."
+# ── 防火墙 ────────────────────────────────────────────
+open_firewall() {
+    info "配置防火墙..."
+    local opened=0
 
-    if command -v ufw &>/dev/null && ufw status | grep -q "active"; then
-        info "检测到 UFW，添加规则 ..."
-        ufw allow 3000/tcp comment "LiveStream API" 2>/dev/null
-        ufw allow 8080/tcp comment "LiveStream HLS/FLV" 2>/dev/null
-        ufw allow 1935/tcp comment "LiveStream RTMP" 2>/dev/null
+    if command -v ufw &>/dev/null && ufw status 2>/dev/null | grep -q "active"; then
+        ufw allow 3000/tcp 2>/dev/null && opened=1
+        ufw allow 8080/tcp 2>/dev/null
+        ufw allow 1935/tcp 2>/dev/null
         ufw reload 2>/dev/null
-        ok "UFW 规则已添加"
-    elif command -v firewall-cmd &>/dev/null && firewall-cmd --state &>/dev/null; then
-        info "检测到 firewalld，添加规则 ..."
-        firewall-cmd --permanent --add-port=3000/tcp 2>/dev/null
+    fi
+
+    if command -v firewall-cmd &>/dev/null && firewall-cmd --state &>/dev/null; then
+        firewall-cmd --permanent --add-port=3000/tcp 2>/dev/null && opened=1
         firewall-cmd --permanent --add-port=8080/tcp 2>/dev/null
         firewall-cmd --permanent --add-port=1935/tcp 2>/dev/null
         firewall-cmd --reload 2>/dev/null
-        ok "firewalld 规则已添加"
-    elif command -v iptables &>/dev/null; then
-        # 检查 iptables 是否有活跃规则
-        if iptables -L INPUT -n 2>/dev/null | grep -q "DROP\|REJECT"; then
-            info "检测到 iptables，添加规则 ..."
-            iptables -I INPUT -p tcp --dport 3000 -j ACCEPT 2>/dev/null
-            iptables -I INPUT -p tcp --dport 8080 -j ACCEPT 2>/dev/null
-            iptables -I INPUT -p tcp --dport 1935 -j ACCEPT 2>/dev/null
-            # 尝试持久化
-            if command -v iptables-save &>/dev/null; then
-                mkdir -p /etc/iptables
-                iptables-save > /etc/iptables/rules.v4 2>/dev/null || true
-            fi
-            ok "iptables 规则已添加"
-        else
-            info "未检测到活跃的防火墙，跳过"
-        fi
-    else
-        info "未检测到防火墙，跳过配置"
     fi
+
+    if command -v iptables &>/dev/null && ! iptables -C INPUT -p tcp --dport 3000 -j ACCEPT 2>/dev/null; then
+        iptables -I INPUT -p tcp --dport 3000 -j ACCEPT 2>/dev/null && opened=1
+        iptables -I INPUT -p tcp --dport 8080 -j ACCEPT 2>/dev/null
+        iptables -I INPUT -p tcp --dport 1935 -j ACCEPT 2>/dev/null
+        # 持久化
+        if command -v iptables-save &>/dev/null; then
+            iptables-save > /etc/iptables/rules.v4 2>/dev/null || true
+        fi
+    fi
+
+    [[ $opened -eq 1 ]] && ok "防火墙端口已开放 (3000/8080/1935)" || info "未检测到活跃防火墙或端口已开放"
 }
 
-# ---------- 打印部署信息 ----------
+# ── 打印摘要 ──────────────────────────────────────────
 print_summary() {
     local ip
-    ip=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "YOUR_SERVER_IP")
+    ip=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "<服务器IP>")
 
     echo ""
-    echo -e "${GREEN}========================================${NC}"
-    echo -e "${GREEN}  部署完成!${NC}"
-    echo -e "${GREEN}========================================${NC}"
+    echo -e "${GREEN}══════════════════════════════════════════════════${NC}"
+    echo -e "${GREEN}  ✅ LiveStream 部署完成！${NC}"
+    echo -e "${GREEN}══════════════════════════════════════════════════${NC}"
     echo ""
-    echo -e "  ${CYAN}网页播放地址:${NC}  http://${ip}:3000"
-    echo -e "  ${CYAN}管理后台地址:${NC}  http://${ip}:3000/console"
-    echo -e "  ${CYAN}API 状态接口:${NC}  http://${ip}:3000/api/status"
+    echo -e "  网页播放:   ${CYAN}http://${ip}:3000${NC}"
+    echo -e "  管理后台:   ${CYAN}http://${ip}:3000/console${NC}"
+    echo -e "  状态 API:   ${CYAN}http://${ip}:3000/api/status${NC}"
     echo ""
-    echo -e "  ${CYAN}RTMP 推流地址:${NC}  rtmp://${ip}:1935/live/live"
-    echo -e "  ${CYAN}FLV 播放地址:${NC}   http://${ip}:8080/live/live.flv"
-    echo -e "  ${CYAN}HLS 播放地址:${NC}   http://${ip}:8080/live/live/index.m3u8"
+    echo -e "  RTMP 推流:  ${CYAN}rtmp://${ip}:1935/live/live${NC}"
+    echo -e "  FLV 播放:   ${CYAN}http://${ip}:8080/live/live.flv${NC}"
+    echo -e "  HLS 播放:   ${CYAN}http://${ip}:8080/live/live/index.m3u8${NC}"
     echo ""
-    echo -e "  ${CYAN}OBS 推流配置:${NC}"
-    echo -e "    服务器: rtmp://${ip}:1935/live"
-    echo -e "    密钥:   live"
+    echo -e "  OBS 推流配置:"
+    echo -e "    服务器:  rtmp://${ip}:1935/live"
+    echo -e "    密钥:    live"
     echo ""
-    echo -e "  ${YELLOW}管理后台默认账号:${NC} admin / admin123"
-    echo -e "  ${RED}请尽快修改默认密码!${NC} (编辑 ${PROJECT_DIR}/config.js)"
+    echo -e "  ${YELLOW}默认账号: admin / admin123  (请尽快修改！)${NC}"
     echo ""
-    echo -e "  ${CYAN}常用命令:${NC}"
-    echo -e "    pm2 status              # 查看服务状态"
+    echo -e "  常用命令:"
+    echo -e "    pm2 status              # 查看状态"
     echo -e "    pm2 logs livestream     # 查看日志"
-    echo -e "    pm2 restart livestream  # 重启服务"
-    echo -e "    pm2 stop livestream     # 停止服务"
-    echo -e "    pm2 monit              # 实时监控"
+    echo -e "    pm2 restart livestream  # 重启"
+    echo -e "    pm2 stop livestream     # 停止"
     echo ""
-    echo -e "${GREEN}========================================${NC}"
+    echo -e "${GREEN}══════════════════════════════════════════════════${NC}"
 }
 
-# ---------- 主流程 ----------
+# ── 主流程 ────────────────────────────────────────────
 main() {
     echo ""
-    echo -e "${CYAN}================================================${NC}"
-    echo -e "${CYAN}  单频道在线直播服务系统 - 一键部署${NC}"
-    echo -e "${CYAN}================================================${NC}"
+    echo -e "${CYAN}  LiveStream 一键部署${NC}"
+    echo -e "${CYAN}  兼容 Debian/Ubuntu · RHEL/CentOS/Fedora${NC}"
     echo ""
 
-    detect_os
-    install_base_tools
-    install_nodejs
+    detect_pkg_mgr
+    install_base
+    install_node
     install_ffmpeg
     install_pm2
     deploy_project
     start_service
-    configure_firewall
+    open_firewall
     print_summary
 }
 
-main "$@"
+main
