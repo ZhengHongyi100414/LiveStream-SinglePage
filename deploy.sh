@@ -2,7 +2,10 @@
 #
 # LiveStream 一键部署脚本
 # 兼容 Debian/Ubuntu 和 RHEL/CentOS/Fedora
-# 用法: curl -fsSL <raw-url> | bash -s -- [--dir /path/to/install]
+# 用法:
+#   sudo bash deploy.sh                     # 默认源
+#   sudo bash deploy.sh --china             # 国内镜像加速
+#   sudo bash deploy.sh --dir /path/to/dir  # 自定义安装目录
 #
 set -euo pipefail
 
@@ -16,12 +19,23 @@ die()   { err "$*"; exit 1; }
 
 # ── 参数解析 ──────────────────────────────────────────
 INSTALL_DIR="/opt/LiveStream"
+CHINA=0
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --dir) INSTALL_DIR="$2"; shift 2 ;;
-        *) die "未知参数: $1" ;;
+        --dir)   INSTALL_DIR="$2"; shift 2 ;;
+        --china) CHINA=1; shift ;;
+        *) die "未知参数: $1 (支持: --china, --dir <路径>)" ;;
     esac
 done
+
+# ── 镜像地址 ──────────────────────────────────────────
+# 国内模式下: Node.js 二进制走淘宝镜像, npm 包走淘宝 registry
+GIT_REPO_URL="https://github.com/ZhengHongyi100414/LiveStream-SinglePage.git"
+if [[ $CHINA -eq 1 ]]; then
+    NODE_MIRROR="https://npmmirror.com/mirrors/node"
+    NPM_REGISTRY="https://registry.npmmirror.com"
+    info "🇨🇳 国内镜像加速模式 (Node/npm 走淘宝源)"
+fi
 
 # ── 权限检查 ──────────────────────────────────────────
 [[ $EUID -eq 0 ]] || die "请使用 root 权限运行 (sudo bash deploy.sh)"
@@ -44,9 +58,9 @@ detect_pkg_mgr() {
 install_base() {
     info "安装基础工具..."
     case "$PKG_MGR" in
-        apt) apt-get update -qq && apt-get install -y -qq curl git ca-certificates ;;
-        dnf) dnf install -y -q curl git ca-certificates ;;
-        yum) yum install -y -q curl git ca-certificates ;;
+        apt) apt-get update -qq && apt-get install -y -qq curl git ca-certificates xz-utils ;;
+        dnf) dnf install -y -q curl git ca-certificates xz ;;
+        yum) yum install -y -q curl git ca-certificates xz ;;
     esac
     ok "基础工具就绪"
 }
@@ -58,12 +72,33 @@ install_node() {
         ver=$(node -v | sed 's/v//' | cut -d. -f1)
         if [[ $ver -ge 16 ]]; then
             ok "Node.js $(node -v) 已安装，跳过"
+            # 国内模式下顺便设置 npm 镜像
+            if [[ $CHINA -eq 1 ]]; then
+                npm config set registry "$NPM_REGISTRY" 2>/dev/null || true
+            fi
             return
         fi
         warn "Node.js 版本过低 ($(node -v))，将升级..."
     fi
 
-    info "安装 Node.js 18.x LTS..."
+    if [[ $CHINA -eq 1 ]]; then
+        install_node_mirror
+    else
+        install_node_official
+    fi
+
+    ok "Node.js $(node -v) 安装完成"
+
+    # 设置 npm 镜像
+    if [[ $CHINA -eq 1 ]]; then
+        npm config set registry "$NPM_REGISTRY"
+        info "npm 镜像已设为 $NPM_REGISTRY"
+    fi
+}
+
+# 官方源安装 (NodeSource)
+install_node_official() {
+    info "通过 NodeSource 安装 Node.js 18.x..."
     case "$PKG_MGR" in
         apt)
             curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
@@ -74,7 +109,61 @@ install_node() {
             $PKG_MGR install -y -q nodejs
             ;;
     esac
-    ok "Node.js $(node -v) 安装完成"
+}
+
+# 国内镜像安装 (npmmirror 二进制)
+install_node_mirror() {
+    info "通过淘宝镜像安装 Node.js 18.x LTS..."
+
+    # 获取最新 v18 版本号
+    local version
+    version=$(curl -fsSL "${NODE_MIRROR}/index.tab" 2>/dev/null \
+        | grep -oP 'v18\.\d+\.\d+' | head -1) || true
+
+    # 如果 tab 索引获取失败，用 SHASUMS 回退
+    if [[ -z "$version" ]]; then
+        version=$(curl -fsSL "${NODE_MIRROR}/latest-v18.x/" 2>/dev/null \
+            | grep -oP 'node-v18\.\d+\.\d+' | head -1 | sed 's/node-//') || true
+    fi
+
+    # 最终回退：硬编码已知稳定版本
+    if [[ -z "$version" ]]; then
+        version="v18.20.4"
+        warn "无法自动获取最新版本，使用 $version"
+    fi
+
+    local arch
+    arch=$(uname -m)
+    case "$arch" in
+        x86_64)  arch="x64" ;;
+        aarch64) arch="arm64" ;;
+        armv7l)  arch="armv7l" ;;
+        *) die "不支持的架构: $arch" ;;
+    esac
+
+    local filename="node-${version}-linux-${arch}"
+    local url="${NODE_MIRROR}/${version}/${filename}.tar.xz"
+    info "下载: $url"
+
+    local tmp
+    tmp=$(mktemp -d)
+    curl -fSL --connect-timeout 30 --retry 3 "$url" -o "$tmp/node.tar.xz"
+    tar -xJf "$tmp/node.tar.xz" -C "$tmp"
+    cp -f "$tmp/${filename}/bin/node"     /usr/local/bin/node
+    cp -f "$tmp/${filename}/bin/npm"      /usr/local/bin/npm
+    cp -f "$tmp/${filename}/bin/npx"      /usr/local/bin/npx
+    ln -sf /usr/local/bin/node /usr/bin/node 2>/dev/null || true
+    ln -sf /usr/local/bin/npm  /usr/bin/npm   2>/dev/null || true
+    ln -sf /usr/local/bin/npx  /usr/bin/npx   2>/dev/null || true
+    # 复制 node_modules (npm 运行需要)
+    mkdir -p /usr/local/lib/node_modules
+    cp -rf "$tmp/${filename}/lib/node_modules/npm" /usr/local/lib/node_modules/
+    rm -rf "$tmp"
+
+    # 验证
+    if ! command -v node &>/dev/null; then
+        die "Node.js 安装失败"
+    fi
 }
 
 # ── 安装 FFmpeg ───────────────────────────────────────
@@ -90,7 +179,6 @@ install_ffmpeg() {
             apt-get install -y -qq ffmpeg
             ;;
         dnf)
-            # 尝试 RPM Fusion
             local rhel_ver
             rhel_ver=$(rpm -E %{rhel} 2>/dev/null || echo "8")
             dnf install -y -q epel-release 2>/dev/null || true
@@ -127,7 +215,7 @@ install_ffmpeg_static() {
 
     local tmp
     tmp=$(mktemp -d)
-    curl -fSL "$url" -o "$tmp/ffmpeg.tar.xz"
+    curl -fSL --connect-timeout 30 --retry 3 "$url" -o "$tmp/ffmpeg.tar.xz"
     tar -xJf "$tmp/ffmpeg.tar.xz" -C "$tmp"
     local bindir
     bindir=$(find "$tmp" -maxdepth 1 -type d -name 'ffmpeg-*' | head -1)
@@ -159,7 +247,7 @@ deploy_project() {
         cd "$INSTALL_DIR"
     else
         info "克隆项目到 $INSTALL_DIR..."
-        git clone https://github.com/ZhengHongyi100414/LiveStream-SinglePage.git "$INSTALL_DIR"
+        git clone "$GIT_REPO_URL" "$INSTALL_DIR"
         cd "$INSTALL_DIR"
     fi
 
@@ -180,14 +268,12 @@ deploy_project() {
 # ── 启动服务 ──────────────────────────────────────────
 start_service() {
     cd "$INSTALL_DIR"
-    # 清理旧进程
     pm2 delete livestream 2>/dev/null || true
 
     info "启动 LiveStream..."
     pm2 start server.js --name livestream --max-memory-restart 512M
     pm2 save
 
-    # 开机自启
     pm2 startup systemd -u root --hp /root 2>/dev/null \
         || pm2 startup 2>/dev/null \
         || warn "PM2 开机自启设置失败，可手动执行: pm2 startup"
@@ -218,7 +304,6 @@ open_firewall() {
         iptables -I INPUT -p tcp --dport 3000 -j ACCEPT 2>/dev/null && opened=1
         iptables -I INPUT -p tcp --dport 8080 -j ACCEPT 2>/dev/null
         iptables -I INPUT -p tcp --dport 1935 -j ACCEPT 2>/dev/null
-        # 持久化
         if command -v iptables-save &>/dev/null; then
             iptables-save > /etc/iptables/rules.v4 2>/dev/null || true
         fi
