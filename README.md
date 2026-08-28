@@ -54,6 +54,44 @@
 - **Node.js**：>= 16.0.0
 - **FFmpeg**：>= 4.0（含 ffprobe）
 
+## 一键部署
+
+提供自动化部署脚本，一条命令完成 Node.js、FFmpeg、PM2 安装 + 项目克隆 + 服务启动 + 防火墙配置。
+
+### Linux / macOS
+
+```bash
+# 默认源
+curl -fsSL https://raw.githubusercontent.com/ZhengHongyi100414/LiveStream-SinglePage/main/deploy.sh | sudo bash
+
+# 国内服务器加速（Node/npm 走淘宝镜像）
+curl -fsSL https://raw.githubusercontent.com/ZhengHongyi100414/LiveStream-SinglePage/main/deploy.sh | sudo bash -s -- --china
+
+# 自定义安装目录
+curl -fsSL https://raw.githubusercontent.com/ZhengHongyi100414/LiveStream-SinglePage/main/deploy.sh | sudo bash -s -- --china --dir /home/jay/LiveStream
+```
+
+支持 Debian/Ubuntu、RHEL/CentOS/Fedora、macOS，自动检测包管理器。
+
+### Windows Server
+
+```powershell
+# 以管理员身份运行 PowerShell
+Set-ExecutionPolicy Bypass -Scope Process -Force
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/ZhengHongyi100414/LiveStream-SinglePage/main/deploy.ps1" -OutFile deploy.ps1
+
+# 默认
+.\deploy.ps1
+
+# 国内加速
+.\deploy.ps1 -China
+
+# 自定义目录
+.\deploy.ps1 -China -Dir "D:\LiveStream"
+```
+
+通过 Chocolatey 安装 Node.js 和 FFmpeg，PM2 + pm2-windows-startup 管理进程。
+
 ## 保姆级部署教程
 
 ### 第一步：安装系统依赖
